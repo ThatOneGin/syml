@@ -3,7 +3,41 @@
  *  x86_64 IL code generator
  *)
 
-let reg_table = [
+ (*
+  * these tables are temporary, later will be only one
+  * to avoid this madness.
+  *)
+let reg_table8 = [
+  "al"; "bl";
+  "cl"; "dl";
+  "sil"; "dil";
+  "bpl"; "spl";
+  "r8b"; "r9b";
+  "r10b"; "r11b";
+  "r12b"; "r13b";
+  "r14b"; "r15b";
+]
+and reg_table16 = [
+  "ax"; "bx";
+  "cx"; "dx";
+  "si"; "di";
+  "bp"; "sp";
+  "r8w"; "r9w";
+  "r10w"; "r11w";
+  "r12w"; "r13w";
+  "r14w"; "r15w";
+]
+and reg_table32 = [
+  "eax"; "ebx";
+  "ecx"; "edx";
+  "esi"; "edi";
+  "ebp"; "esp";
+  "r8d"; "r9d";
+  "r10d"; "r11d";
+  "r12d"; "r13d";
+  "r14d"; "r15d";
+]
+and reg_table64 = [
   "rax"; "rbx";
   "rcx"; "rdx";
   "rsp"; "rbp";
@@ -14,48 +48,83 @@ let reg_table = [
   "r14"; "r15";
 ]
 
+exception Code_x86_64 of string
+
+let bits2reglist (b: Il.bits): string list =
+  match b with
+  | Bits8 -> reg_table8
+  | Bits16 -> reg_table16
+  | Bits32 -> reg_table32
+  | Bits64 -> reg_table64
+
+(* to get instruction mnemonic suffix (if any) *)
+let getmnemonicsuffix (b: Il.bits): char =
+  match b with
+  | Bits8 -> 'b'
+  | Bits16 -> 'w'
+  | Bits32 -> 'l'
+  | Bits64 -> 'q'
+
 let emit_indent (s: Il.smod): unit =
   Il.smod_emit s "\t"
 
-let emit_label (s: Il.smod) (name: string) =
-  Il.smod_emit s (Printf.sprintf "%s:\n" name)
+let emit_newline (s: Il.smod): unit =
+  Il.smod_emit s "\n"
+
+(* unused *)
+let emit_label (s: Il.smod) (id: int) =
+  Il.smod_emit s (Printf.sprintf "L%d:\n" id)
 
 let emit_reg (r: Il.reg): string =
   match r with
   | Spill i -> Printf.sprintf "-%d(%%rbp)" i
-  | Rreg i -> List.nth reg_table i
+  | Rreg (i, b) -> List.nth (bits2reglist b) i
 
 let emit_val (v: Il.value): string =
   match v with
   | Int i -> "$" ^ string_of_int i
-  | Str s -> s
+  | Str _ -> ".LK0"
 
 let emit_operand (o: Il.operand): string =
   match o with
-  | Reg r -> emit_reg r
+  | Reg ro -> begin
+    match ro with
+      | Some r -> emit_reg r
+      | None -> raise
+        (Code_x86_64
+          "No register in instruction operand.")
+  end
   | Val v -> emit_val v
 
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   emit_indent s;
+  let () =
   match i with
   | Move m ->
+    let dest: Il.reg =
+      match m.dest with
+      | Some r -> r
+      | _ -> raise
+        (Code_x86_64
+          "No register found in instruction.")
+    in
     Il.smod_emit s
-      (Printf.sprintf "movq %s, %s" (emit_operand m.src) (emit_reg m.dest))
+      (Printf.sprintf "mov%c %s, %%%s"
+        (getmnemonicsuffix (Il.type2bits m.ty))
+        (emit_operand m.src)
+        (emit_reg dest))
   | Ret r ->
+    let b: Il.bits = Il.type2bits r.ty in
+    (* This doesn't handle values with size greater than 64-bits *)
     Il.smod_emit s
-      (Printf.sprintf "movq %s, %%rax" (emit_operand r.value))
-
-let emit_block (s: Il.smod) (b: Il.block): unit =
-  Array.iter (fun (i: Il.inst): unit -> emit_inst s i) b.body; ()
-
-let emit_func_prologue (s: Il.smod) (f: Il.sfunc): unit =
-  emit_label s f.name;
-  Il.smod_emit s (Printf.sprintf "\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n"); ()
-
-let emit_func_epilogue (s: Il.smod): unit =
-  Il.smod_emit s (Printf.sprintf "\tpopq %%rbp\n\tret"); ()
-
-let emit_func (s: Il.smod) (f: Il.sfunc): unit =
-  emit_func_prologue s f;
-  Array.iter (fun (b: Il.block): unit -> emit_block s b) f.body;
-  emit_func_epilogue s;
+      (Printf.sprintf "mov%c %s, %%%s"
+        (getmnemonicsuffix b)
+        (emit_operand r.value)
+        (List.nth (bits2reglist b) 0))
+  | Enter ->
+    Il.smod_emit s "pushq %rbp\n";
+    Il.smod_emit s "\tmovq %rsp, %rbp"
+  | Leave ->
+    Il.smod_emit s "popq %rbp"
+  in
+  emit_newline s

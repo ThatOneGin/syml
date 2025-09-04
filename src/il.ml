@@ -3,42 +3,48 @@
  *  Intermediate language
  *)
 
+type bits = 
+  | Bits8
+  | Bits16
+  | Bits32
+  | Bits64
+
 type value =
   | Str of string
   | Int of int
 and reg =
   | Spill of int
-  | Rreg of int
+  | Rreg of int * bits
 and operand =
-  | Reg of reg
+  | Reg of reg option
   | Val of value
 
+type move = {
+    mutable dest: reg option;
+    ty: Dtypes.datatype;
+    src: operand;
+  }
+
+type ret = {
+    ty: Dtypes.datatype;
+    value: operand;
+  }
+
 type inst =
-  | Move of {
-      mutable dest: reg;
-      src: operand;
-    }
-  | Ret of {
-      ty: Dtypes.datatype;
-      value: operand;
-    }
+  | Move of move
+  | Ret of ret
+  | Enter (* enter next stack frame *)
+  | Leave (* leave current stack frame *)
+
+type insts = inst array
 
 type smod = {
   modname: string;
   arch: Common.target_arch;
   nregs: int;
-  mutable allocd_regs: int;
+  mutable allocd_regs: int; (* unused *)
   mutable asm_buf: out_channel option;
-  mutable sp: int;
-}
-
-type block = {
-  mutable body: inst array;
-}
-and sfunc = {
-  name: string;
-  mutable body: block array;
-  ty: Dtypes.datatype;
+  mutable sp: int; (* unused *)
 }
 
 let get_arch_nregister (a: Common.target_arch): int =
@@ -71,20 +77,9 @@ let smod_emit (s: smod) (b: string): unit =
   in
   Printf.fprintf buf "%s" b; ()
 
-let block_new: block =
-  {
-    body = [||];
-  }
-
-let block_append (b: block) (i: inst): unit =
-  b.body <- Array.append b.body [|i|]; ()
-
-let sfunc_new (name: string) (ty: Dtypes.datatype): sfunc =
-  {
-    name = name;
-    ty = ty;
-    body = [||];
-  }
-
-let sfunc_append (f: sfunc) (b: block): unit =
-    f.body <- Array.append f.body [|b|]; ()
+let type2bits (ty: Dtypes.datatype): bits =
+  match ty with
+  | I32 | Int -> Bits32
+  | I64 | Str -> Bits64
+  | Nil | I8 -> Bits8
+  | I16 -> Bits16
