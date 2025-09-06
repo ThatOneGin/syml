@@ -109,7 +109,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
           "No register found in instruction.")
     in
     Il.smod_emit s
-      (Printf.sprintf "mov%c %s, %%%s"
+      (Printf.sprintf "mov%c\t%s, %%%s"
         (getmnemonicsuffix (Il.type2bits m.ty))
         (emit_operand m.src)
         (emit_reg dest))
@@ -117,14 +117,15 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     let b: Il.bits = Il.type2bits r.ty in
     (* This doesn't handle values with size greater than 64-bits *)
     Il.smod_emit s
-      (Printf.sprintf "mov%c %s, %%%s"
+      (Printf.sprintf "mov%c\t%s, %%%s"
         (getmnemonicsuffix b)
         (emit_operand r.value)
         (List.nth (bits2reglist b) 0))
   | Enter ->
-    Il.smod_emit s "pushq %rbp\n";
-    Il.smod_emit s "\tmovq %rsp, %rbp"
+    Il.smod_emit s "pushq\t%rbp\n";
+    Il.smod_emit s "\tmovq\t%rsp, %rbp"
   | Leave ->
-    Il.smod_emit s "popq %rbp"
+    Il.smod_emit s "popq\t%rbp\n";
+    Il.smod_emit s "\tret"
   in
   emit_newline s

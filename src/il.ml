@@ -20,14 +20,15 @@ and operand =
   | Val of value
 
 type move = {
-    mutable dest: reg option;
     ty: Dtypes.datatype;
-    src: operand;
+    mutable dest: reg option;
+    mutable src: operand;
+    name: string; (* additional data to use in ra.ml *)
   }
 
 type ret = {
     ty: Dtypes.datatype;
-    value: operand;
+    mutable value: operand;
   }
 
 type inst =
@@ -83,3 +84,10 @@ let type2bits (ty: Dtypes.datatype): bits =
   | I64 | Str -> Bits64
   | Nil | I8 -> Bits8
   | I16 -> Bits16
+
+let bits2size (b: bits): int =
+  match b with
+  | Bits8 -> 1
+  | Bits16 -> 2
+  | Bits32 -> 4
+  | Bits64 -> 8

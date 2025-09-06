@@ -31,3 +31,6 @@ let syml_errorf fmt: 'a =
       print_newline ();
       raise (Common_error "Aborting due to previous error."))
     fmt
+
+let unreachable (where: string) (what: string) =
+  syml_errorf "Unreachable state reached %s at %s." what where
