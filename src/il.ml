@@ -39,13 +39,17 @@ type inst =
 
 type insts = inst array
 
+type label = {
+  name: string option;
+  mutable body: insts;
+}
+
 type smod = {
   modname: string;
   arch: Common.target_arch;
   nregs: int;
-  mutable allocd_regs: int; (* unused *)
   mutable asm_buf: out_channel option;
-  mutable sp: int; (* unused *)
+  mutable labelcount: int;
 }
 
 let get_arch_nregister (a: Common.target_arch): int =
@@ -57,8 +61,14 @@ let smod_create (name: string) (arch: Common.target_arch): smod =
     arch = arch;
     asm_buf = None;
     nregs = (get_arch_nregister arch);
-    allocd_regs = 0;
-    sp = 0;}
+    labelcount = 0;}
+
+let smod_newlabel (smod: smod) (name: string option): label =
+  smod.labelcount <- smod.labelcount + 1;
+  {
+    name = name;
+    body = [||];
+  }
 
 let smod_open_out (s: smod) (name: string): unit =
   let fd = open_out name in

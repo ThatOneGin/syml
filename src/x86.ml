@@ -71,10 +71,6 @@ let emit_indent (s: Il.smod): unit =
 let emit_newline (s: Il.smod): unit =
   Il.smod_emit s "\n"
 
-(* unused *)
-let emit_label (s: Il.smod) (id: int) =
-  Il.smod_emit s (Printf.sprintf "L%d:\n" id)
-
 let emit_reg (r: Il.reg): string =
   match r with
   | Spill i -> Printf.sprintf "-%d(%%rbp)" i
@@ -83,7 +79,7 @@ let emit_reg (r: Il.reg): string =
 let emit_val (v: Il.value): string =
   match v with
   | Int i -> "$" ^ string_of_int i
-  | Str _ -> ".LK0"
+  | Str _ -> ".LK0" (* not implemented *)
 
 let emit_operand (o: Il.operand): string =
   match o with
@@ -129,3 +125,18 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     Il.smod_emit s "\tret"
   in
   emit_newline s
+
+let emit_insts (s: Il.smod) (is: Il.insts): unit =
+  let iterator = fun (i: Il.inst): unit ->
+    emit_inst s i;
+  in
+  Array.iter iterator is;
+  ()
+
+let emit_label (s: Il.smod) (l: Il.label): unit =
+  let () =
+    match l.name with
+    | Some name -> Il.smod_emit s (Printf.sprintf "%s:\n" name);
+    | None -> Il.smod_emit s (Printf.sprintf ".LC%d:\n" s.labelcount);
+  in
+  emit_insts s l.body

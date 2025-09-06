@@ -13,9 +13,9 @@ type ctxt = {
   var_map: (string, reg) Hashtbl.t ;
 }
 
-let ctxt_new (smod: smod) (nregs: int): ctxt = {
+let ctxt_new (smod: smod): ctxt = {
     smod = smod;
-    nregs = nregs;
+    nregs = (Il.get_arch_nregister smod.arch);
     sp = 0;
     reg = 0;
     var_map = Hashtbl.create 32;
