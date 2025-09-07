@@ -33,7 +33,7 @@ let syml_errorf fmt: 'a =
     fmt
 
 let unreachable (where: string) (what: string) =
-  syml_errorf "Unreachable state reached %s at %s." what where
+  syml_errorf "Unreachable state reached: %s at %s." what where
 
 let todo (what: string) =
   syml_errorf "TODO: %s is not implemented." what

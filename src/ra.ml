@@ -21,6 +21,11 @@ let ctxt_new (smod: smod): ctxt = {
     var_map = Hashtbl.create 32;
   }
 
+let ctxt_getvar (ctxt: ctxt) (name: string): reg =
+  match Hashtbl.find_opt ctxt.var_map name with
+  | Some r -> r
+  | None -> syml_errorf "Unknown variable '%s'." name
+
 let ctxt_stack_alloc (ctxt: ctxt) (n: int): unit =
   ctxt.sp <- ctxt.sp + n; ()
 
@@ -40,6 +45,18 @@ let free_all (ctxt: ctxt): unit =
   ctxt.sp <- 0;
   ()
 
+let check_value (ctxt: ctxt) (i: value): unit =
+  match i with
+  | Var v -> v.reg <- Some (ctxt_getvar ctxt v.name); ()
+  | _ -> ()
+;;
+
+let check_operand (ctxt: ctxt) (o: operand): unit =
+  match o with
+  | Val v -> check_value ctxt v
+  | _ -> ()
+;;
+
 let alloc_reg_for_inst (ctxt: ctxt) (i: inst): unit =
   match i with
   | Move m ->
@@ -49,6 +66,7 @@ let alloc_reg_for_inst (ctxt: ctxt) (i: inst): unit =
       | Some r -> r
       | None -> unreachable "Ra" "while unwrapping instruction"
     in
+    check_operand ctxt m.src;
     Hashtbl.replace ctxt.var_map m.name loc;
   | Ret _ -> ()
   | Enter -> ()

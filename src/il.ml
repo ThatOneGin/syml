@@ -12,12 +12,17 @@ type bits =
 type value =
   | Str of string
   | Int of int
+  | Var of vardesc
 and reg =
   | Spill of int
   | Rreg of int * bits
 and operand =
   | Reg of reg option
   | Val of value
+and vardesc = {
+    name: string;
+    mutable reg: reg option;
+  }
 
 type move = {
     ty: Dtypes.datatype;

@@ -15,7 +15,10 @@ let expr2val (e: Ast.expr): Il.value =
   | Number d -> Il.Int d
   | String s -> Il.Str s
   | Binop _ -> todo "Binop translation to Il.value"
-  | Ident _ -> todo "Ident translation to Il.value"
+  | Ident s -> Il.Var {
+    name = s;
+    reg = None;
+  }
 
 let typeofexp (e: Ast.expr) =
   match e with

@@ -80,6 +80,13 @@ let emit_val (v: Il.value): string =
   match v with
   | Int i -> "$" ^ string_of_int i
   | Str _ -> ".LK0" (* not implemented *)
+  | Var v -> begin
+    match v.reg with
+    | Some r -> emit_reg r
+    | None -> Common.unreachable
+      "x86_64 codegen"
+      "missing register in variable descriptor"
+  end
 
 let emit_operand (o: Il.operand): string =
   match o with
