@@ -26,6 +26,21 @@ let dostring (name: string) (s: string): unit =
   ()
 ;;
 
+let dofile (filename: string): unit =
+  let chunk_content: string =
+    let in_channel = open_in filename in
+    try
+      let content = really_input_string in_channel (in_channel_length in_channel) in
+      close_in in_channel;
+      content
+    with _ ->
+      close_in_noerr in_channel;
+      ""
+  in
+  dostring "main" chunk_content;
+  ()
+;;
+
 let () =
-  dostring "main" "def main() {let x: i32 = 3; let y = 43; return 0}"
+  dofile Sys.argv.(1)
 ;;

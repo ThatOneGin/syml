@@ -44,8 +44,10 @@ type inst =
 
 type insts = inst array
 
+(* a label can be a function if it has a name. *)
 type label = {
   name: string option;
+  global: bool;
   mutable body: insts;
 }
 
@@ -59,7 +61,7 @@ type smod = {
 
 let get_arch_nregister (a: Common.target_arch): int =
   match a with
-  | Linux_X86_64 -> 16
+  | Linux_X86_64 -> 14 (* amount of general-purpose registers *)
 
 let smod_create (name: string) (arch: Common.target_arch): smod =
    {modname = name;
@@ -68,10 +70,11 @@ let smod_create (name: string) (arch: Common.target_arch): smod =
     nregs = (get_arch_nregister arch);
     labelcount = 0;}
 
-let smod_newlabel (smod: smod) (name: string option): label =
+let smod_newlabel (smod: smod) (name: string option) (global: bool): label =
   smod.labelcount <- smod.labelcount + 1;
   {
     name = name;
+    global = global;
     body = [||];
   }
 

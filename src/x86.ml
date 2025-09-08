@@ -11,7 +11,6 @@ let reg_table8 = [
   "al"; "bl";
   "cl"; "dl";
   "sil"; "dil";
-  "bpl"; "spl";
   "r8b"; "r9b";
   "r10b"; "r11b";
   "r12b"; "r13b";
@@ -21,7 +20,6 @@ and reg_table16 = [
   "ax"; "bx";
   "cx"; "dx";
   "si"; "di";
-  "bp"; "sp";
   "r8w"; "r9w";
   "r10w"; "r11w";
   "r12w"; "r13w";
@@ -31,7 +29,6 @@ and reg_table32 = [
   "eax"; "ebx";
   "ecx"; "edx";
   "esi"; "edi";
-  "ebp"; "esp";
   "r8d"; "r9d";
   "r10d"; "r11d";
   "r12d"; "r13d";
@@ -143,7 +140,9 @@ let emit_insts (s: Il.smod) (is: Il.insts): unit =
 let emit_label (s: Il.smod) (l: Il.label): unit =
   let () =
     match l.name with
-    | Some name -> Il.smod_emit s (Printf.sprintf "%s:\n" name);
+    | Some name ->
+      (if l.global then Il.smod_emit s ("\t.globl " ^ name ^ "\n"));
+      Il.smod_emit s (Printf.sprintf "%s:\n" name);
     | None -> Il.smod_emit s (Printf.sprintf ".LC%d:\n" s.labelcount);
   in
   emit_insts s l.body

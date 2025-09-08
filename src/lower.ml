@@ -60,6 +60,6 @@ let lower_func (smod: smod) (f: Ast.toplevel): Il.label =
     | Func ft -> Some ft.name
     | _ -> None
   in
-  let fl: Il.label = smod_newlabel smod fname in
+  let fl: Il.label = smod_newlabel smod fname true in
   fl.body <- fbody;
   fl
