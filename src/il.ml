@@ -57,6 +57,7 @@ type smod = {
   nregs: int;
   mutable asm_buf: out_channel option;
   mutable labelcount: int;
+  mutable constants: value array;
 }
 
 let get_arch_nregister (a: Common.target_arch): int =
@@ -68,7 +69,8 @@ let smod_create (name: string) (arch: Common.target_arch): smod =
     arch = arch;
     asm_buf = None;
     nregs = (get_arch_nregister arch);
-    labelcount = 0;}
+    labelcount = 0;
+    constants = [||]}
 
 let smod_newlabel (smod: smod) (name: string option) (global: bool): label =
   smod.labelcount <- smod.labelcount + 1;
@@ -95,6 +97,20 @@ let smod_emit (s: smod) (b: string): unit =
       "trying to write on a non existent buffer.\n"
   in
   Printf.fprintf buf "%s" b; ()
+
+(* push a value to the constants table *)
+let smod_push_const (s: smod) (k: value): int =
+  let len = Array.length s.constants in
+  let rec aux (i: int) =
+    if i >= len then None
+    else if Array.get s.constants i = k then Some i
+    else aux (i+1)
+  in
+  match aux 0 with
+  | Some i -> i
+  | None ->
+    s.constants <- Array.append s.constants [|k|]; 
+    len
 
 let type2bits (ty: Dtypes.datatype): bits =
   match ty with

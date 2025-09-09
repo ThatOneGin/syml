@@ -22,6 +22,7 @@ let dostring (name: string) (s: string): unit =
   let is: label = lower_func smod t in
   ctxt_allocregs ctxt is.body;
   emit_label smod is;
+  emit_constants smod;
   Il.smod_close_out smod;
   ()
 ;;

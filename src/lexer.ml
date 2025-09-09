@@ -126,6 +126,7 @@ let lex_read_string (ls: lex_State): string =
     lex_advance ls;
   done;
   let l_end: int = ls.pos in
+  lex_advance ls;
   String.sub ls.src start (l_end - start)
 
 let lex_report_location (ls: lex_State): location =
