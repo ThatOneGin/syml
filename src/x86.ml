@@ -3,55 +3,38 @@
  *  x86_64 IL code generator
  *)
 
- (*
-  * these tables are temporary, later will be only one
-  * to avoid this madness.
-  *)
-let reg_table8 = [
-  "al"; "bl";
-  "cl"; "dl";
-  "sil"; "dil";
-  "r8b"; "r9b";
-  "r10b"; "r11b";
-  "r12b"; "r13b";
-  "r14b"; "r15b";
-]
-and reg_table16 = [
-  "ax"; "bx";
-  "cx"; "dx";
-  "si"; "di";
-  "r8w"; "r9w";
-  "r10w"; "r11w";
-  "r12w"; "r13w";
-  "r14w"; "r15w";
-]
-and reg_table32 = [
-  "eax"; "ebx";
-  "ecx"; "edx";
-  "esi"; "edi";
-  "r8d"; "r9d";
-  "r10d"; "r11d";
-  "r12d"; "r13d";
-  "r14d"; "r15d";
-]
-and reg_table64 = [
-  "rax"; "rbx";
-  "rcx"; "rdx";
-  "rsi"; "rdi";
-  "r8"; "r9";
-  "r10"; "r11";
-  "r12"; "r13";
-  "r14"; "r15";
+(*
+ * List of the majority/all general-purpose registers
+ * should follow the order:
+ * [8-bit; 16-bit; 32-bit; 64-bit]
+ *)
+let reg_table = [
+  ["al"; "ax"; "eax"; "rax"];
+  ["bl"; "bx"; "ebx"; "rbx"];
+  ["cl"; "cx"; "ecx"; "rcx"];
+  ["dl"; "dx"; "edx"; "rdx"];
+  ["dil"; "di"; "edi"; "rdi"];
+  ["sil"; "si"; "esi"; "rsi"];
+  ["r8b"; "r8w"; "r8d"; "r8"];
+  ["r9b"; "r9w"; "r9d"; "r9"];
+  ["r10b"; "r10w"; "r10d"; "r10"];
+  ["r11b"; "r11w"; "r11d"; "r11"];
+  ["r12b"; "r12w"; "r12d"; "r12"];
+  ["r13b"; "r13w"; "r13d"; "r13"];
+  ["r14b"; "r14w"; "r14d"; "r14"];
+  ["r15b"; "r15w"; "r15d"; "r15"];
 ]
 
 exception Code_x86_64 of string
 
-let bits2reglist (b: Il.bits): string list =
-  match b with
-  | Bits8 -> reg_table8
-  | Bits16 -> reg_table16
-  | Bits32 -> reg_table32
-  | Bits64 -> reg_table64
+let getreg (b: Il.bits) (r: int): string =
+  let i = match b with
+    | Bits8 -> 0
+    | Bits16 -> 1
+    | Bits32 -> 2
+    | Bits64 -> 3
+  in
+  (List.nth (List.nth reg_table r) i)
 
 (* to get instruction mnemonic suffix (if any) *)
 let getmnemonicsuffix (b: Il.bits): char =
@@ -70,14 +53,14 @@ let emit_newline (s: Il.smod): unit =
 let emit_reg (r: Il.reg): string =
   match r with
   | Spill i -> Printf.sprintf "-%d(%%rbp)" i
-  | Rreg (i, b) -> List.nth (bits2reglist b) i
+  | Rreg (i, b) -> "%" ^ getreg b i
 
 let emit_val (s: Il.smod) (v: Il.value): string =
   match v with
   | Int i -> "$" ^ string_of_int i
   | Str _ ->
     let i: int = Il.smod_push_const s v in
-    Printf.sprintf ".LK%d" i
+    Printf.sprintf "$.LK%d" i
   | Var v -> begin
     match v.reg with
     | Some r -> emit_reg r
@@ -110,7 +93,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
           "No register found in instruction.")
     in
     Il.smod_emit s
-      (Printf.sprintf "mov%c\t%s, %%%s"
+      (Printf.sprintf "mov%c\t%s, %s"
         (getmnemonicsuffix (Il.type2bits m.ty))
         (emit_operand s m.src)
         (emit_reg dest))
@@ -118,10 +101,10 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     let b: Il.bits = Il.type2bits r.ty in
     (* This doesn't handle values with size greater than 64-bits *)
     Il.smod_emit s
-      (Printf.sprintf "mov%c\t%s, %%%s"
+      (Printf.sprintf "mov%c\t%s, %s"
         (getmnemonicsuffix b)
         (emit_operand s r.value)
-        (List.nth (bits2reglist b) 0))
+        (getreg b 0))
   | Enter ->
     Il.smod_emit s "pushq\t%rbp\n";
     Il.smod_emit s "\tmovq\t%rsp, %rbp"
