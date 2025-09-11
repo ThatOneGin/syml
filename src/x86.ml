@@ -111,7 +111,13 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Leave ->
     Il.smod_emit s "popq\t%rbp\n";
     Il.smod_emit s "\tret"
-  in
+  | Label l -> begin 
+    match l.name with
+    | Some name ->
+      (if l.global then Il.smod_emit s (".globl " ^ name ^ "\n"));
+      Il.smod_emit s (Printf.sprintf "%s:" name);
+    | None -> Il.smod_emit s (Printf.sprintf ".LC%d:" s.labelcount);
+  end in
   emit_newline s
 
 let emit_insts (s: Il.smod) (is: Il.insts): unit =
@@ -135,13 +141,3 @@ let emit_constants (s: Il.smod): unit =
       | _ -> ()
   in
   aux 0
-
-let emit_label (s: Il.smod) (l: Il.label): unit =
-  let () =
-    match l.name with
-    | Some name ->
-      (if l.global then Il.smod_emit s ("\t.globl " ^ name ^ "\n"));
-      Il.smod_emit s (Printf.sprintf "%s:\n" name);
-    | None -> Il.smod_emit s (Printf.sprintf ".LC%d:\n" s.labelcount);
-  in
-  emit_insts s l.body

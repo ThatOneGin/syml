@@ -22,9 +22,9 @@ let dostring (name: string) (s: string): unit =
   let smod: smod = Il.smod_create name Linux_X86_64 in
   Il.smod_open_out smod (name ^ ".s");
   let ctxt: ctxt = ctxt_new smod in
-  let is: label = lower_func smod t in
-  ctxt_allocregs ctxt is.body;
-  emit_label smod is;
+  let is: insts = lower_func smod t in
+  ctxt_allocregs ctxt is;
+  emit_insts smod is;
   emit_constants smod;
   Il.smod_close_out smod;
   ()

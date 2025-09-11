@@ -36,20 +36,19 @@ type ret = {
     mutable value: operand;
   }
 
+type label = {
+  name: string option;
+  global: bool;
+}
+
 type inst =
   | Move of move
   | Ret of ret
   | Enter (* enter next stack frame *)
   | Leave (* leave current stack frame *)
+  | Label of label
 
 type insts = inst array
-
-(* a label can be a function if it has a name. *)
-type label = {
-  name: string option;
-  global: bool;
-  mutable body: insts;
-}
 
 type smod = {
   modname: string;
@@ -72,13 +71,11 @@ let smod_create (name: string) (arch: Common.target_arch): smod =
     labelcount = 0;
     constants = [||]}
 
-let smod_newlabel (smod: smod) (name: string option) (global: bool): label =
-  smod.labelcount <- smod.labelcount + 1;
-  {
-    name = name;
-    global = global;
-    body = [||];
-  }
+let smod_newlabel (smod: smod) (global: bool) =
+  if not global then begin
+    smod.labelcount <- smod.labelcount + 1; ()
+  end else
+    ()
 
 let smod_open_out (s: smod) (name: string): unit =
   let fd = open_out name in

@@ -41,7 +41,11 @@ let stat2inst (s: Ast.stat): Il.inst =
               value = val2op (expr2val r);}
 
 let lower_func_body (f: Ast.funct): Il.insts =
-  let bl = {body = [|Enter|]} in
+  let lab: Il.inst = Label {
+    name = Some f.name;
+    global = true;
+  } in
+  let bl = {body = [|lab; Enter|]} in
   let iter = fun (s: Ast.stat): unit -> 
     bl.body <- Array.append bl.body [|stat2inst s|];
   in
@@ -49,17 +53,11 @@ let lower_func_body (f: Ast.funct): Il.insts =
   bl.body <- Array.append bl.body [|Leave|];
   bl.body
 
-let lower_func (smod: smod) (f: Ast.toplevel): Il.label =
+let lower_func (smod: smod) (f: Ast.toplevel): Il.insts =
   let fbody: Il.insts =
     match f with
     | Func ft -> lower_func_body ft
     | _ -> [||]
   in
-  let fname: string option =
-    match f with
-    | Func ft -> Some ft.name
-    | _ -> None
-  in
-  let fl: Il.label = smod_newlabel smod fname true in
-  fl.body <- fbody;
-  fl
+  smod_newlabel smod true;
+  fbody;

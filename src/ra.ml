@@ -71,6 +71,7 @@ let alloc_reg_for_inst (ctxt: ctxt) (i: inst): unit =
   | Ret _ -> ()
   | Enter -> ()
   | Leave -> free_all ctxt; ()
+  | Label _ -> ()
 
 let ctxt_allocregs (ctxt: ctxt) (i: insts): unit =
   Array.iter
