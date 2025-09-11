@@ -67,10 +67,10 @@ let alloc_reg_for_inst (ctxt: ctxt) (i: inst): unit =
       | None -> unreachable "Ra" "while unwrapping instruction"
     in
     check_operand ctxt m.src;
-    Hashtbl.replace ctxt.var_map m.name loc;
-  | Ret _ -> ()
+    Hashtbl.replace ctxt.var_map m.name loc
+  | Ret r -> check_operand ctxt r.value
   | Enter -> ()
-  | Leave -> free_all ctxt; ()
+  | Leave -> free_all ctxt
   | Label _ -> ()
 
 let ctxt_allocregs (ctxt: ctxt) (i: insts): unit =

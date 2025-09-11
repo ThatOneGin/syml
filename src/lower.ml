@@ -28,7 +28,7 @@ let typeofexp (e: Ast.expr) =
 
 let val2op (v: Il.value): Il.operand = Val v
 
-let stat2inst (s: Ast.stat): Il.inst =
+let stat2inst (s: Ast.stat) (t: Dtypes.datatype): Il.inst =
   match s with
     | Var v ->
       let vv: Il.value = expr2val v.value in
@@ -37,7 +37,7 @@ let stat2inst (s: Ast.stat): Il.inst =
             dest = None;
             src  = val2op vv;}
     | Return r ->
-      Il.Ret {ty = typeofexp r;
+      Il.Ret {ty = t;
               value = val2op (expr2val r);}
 
 let lower_func_body (f: Ast.funct): Il.insts =
@@ -47,7 +47,7 @@ let lower_func_body (f: Ast.funct): Il.insts =
   } in
   let bl = {body = [|lab; Enter|]} in
   let iter = fun (s: Ast.stat): unit -> 
-    bl.body <- Array.append bl.body [|stat2inst s|];
+    bl.body <- Array.append bl.body [|stat2inst s f.ty|];
   in
   Array.iter iter f.body;
   bl.body <- Array.append bl.body [|Leave|];

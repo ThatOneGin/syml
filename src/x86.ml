@@ -100,11 +100,16 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Ret r ->
     let b: Il.bits = Il.type2bits r.ty in
     (* This doesn't handle values with size greater than 64-bits *)
-    Il.smod_emit s
-      (Printf.sprintf "mov%c\t%s, %s"
-        (getmnemonicsuffix b)
-        (emit_operand s r.value)
-        (getreg b 0))
+    let op: string = emit_operand s r.value in
+    let rr: string = "%" ^ getreg b 0 in
+    if String.equal op rr then
+      Il.smod_emit s "nop"
+    else
+      Il.smod_emit s
+        (Printf.sprintf "mov%c\t%s, %s"
+          (getmnemonicsuffix b)
+          (emit_operand s r.value)
+          (getreg b 0))
   | Enter ->
     Il.smod_emit s "pushq\t%rbp\n";
     Il.smod_emit s "\tmovq\t%rsp, %rbp"

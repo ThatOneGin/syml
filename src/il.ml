@@ -122,3 +122,56 @@ let bits2size (b: bits): int =
   | Bits16 -> 2
   | Bits32 -> 4
   | Bits64 -> 8
+
+(* IL printer for visualization *)
+
+let reg2str (r: reg): string =
+  match r with
+  | Spill i -> Printf.sprintf "SP<%d>" i
+  | Rreg (i, _) -> Printf.sprintf "R<%d>" i
+
+let opt_reg2str (r: reg option): string =
+  match r with
+  | Some rr -> reg2str rr
+  | None -> "R<nil>"
+
+let val2str (v: value): string =
+  match v with
+  | Str s -> "\"" ^ s ^ "\""
+  | Int i -> string_of_int i
+  | Var v -> v.name
+
+let op2str (o: operand): string =
+  match o with
+  | Reg r -> opt_reg2str r
+  | Val v -> val2str v
+
+let label2str (l: label): string =
+  match l.name with
+  | Some s -> s
+  | None -> "LC"
+
+let print_insts (is: insts): unit =
+  let f =
+    fun (i: inst): unit ->
+      print_char '\t';
+      begin
+        match i with
+          | Move m ->
+            Printf.printf "%s <- %s ; %s"
+              m.name
+              (op2str m.src)
+              (opt_reg2str m.dest)
+          | Ret r ->
+            Printf.printf "ret %s"
+              (op2str r.value)
+          | Enter -> print_endline "\r{"
+          | Leave -> print_endline "\r}"
+          | Label l ->
+            Printf.printf "\r%s:"
+              (label2str l)
+      end;
+      print_newline ()
+  in
+  Array.iter f is;
+  ()
