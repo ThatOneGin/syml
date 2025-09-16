@@ -6,10 +6,9 @@
 open Common
 open Lexer
 open Parser
-open Lower
+open Code
 open Il
 open Ast
-open Ra
 open X86
 open Type
 
@@ -20,11 +19,11 @@ let dostring (name: string) (s: string): unit =
   let t: toplevel = parse_func ps in
   check_func ts t;
   let smod: smod = Il.smod_create name Linux_X86_64 in
+  let cs: code_State = cs_new smod in
   Il.smod_open_out smod (name ^ ".s");
-  let ctxt: ctxt = ctxt_new smod in
-  let is: insts = lower_func smod t in
-  ctxt_allocregs ctxt is;
-  emit_insts smod is;
+  cs_toplevel cs t;
+  cs_finish cs;
+  emit_insts smod cs.code;
   emit_constants smod;
   Il.smod_close_out smod;
   ()

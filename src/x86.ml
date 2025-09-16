@@ -109,7 +109,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
         (Printf.sprintf "mov%c\t%s, %s"
           (getmnemonicsuffix b)
           (emit_operand s r.value)
-          (getreg b 0))
+          ("%" ^ getreg b 0))
   | Enter ->
     Il.smod_emit s "pushq\t%rbp\n";
     Il.smod_emit s "\tmovq\t%rsp, %rbp"
@@ -117,11 +117,11 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     Il.smod_emit s "popq\t%rbp\n";
     Il.smod_emit s "\tret"
   | Label l -> begin 
-    match l.name with
-    | Some name ->
-      (if l.global then Il.smod_emit s (".globl " ^ name ^ "\n"));
-      Il.smod_emit s (Printf.sprintf "%s:" name);
-    | None -> Il.smod_emit s (Printf.sprintf ".LC%d:" s.labelcount);
+    match l with
+    | Named_label nl ->
+      (if nl.global then Il.smod_emit s (".globl " ^ nl.name ^ "\n"));
+      Il.smod_emit s (Printf.sprintf "%s:" nl.name);
+    | Unnamed_label id -> Il.smod_emit s (Printf.sprintf "/* label constant %d */\n.LC%d:" id id);
   end in
   emit_newline s
 

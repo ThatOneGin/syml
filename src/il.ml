@@ -36,10 +36,12 @@ type ret = {
     mutable value: operand;
   }
 
-type label = {
-  name: string option;
-  global: bool;
-}
+type label =
+  | Named_label of {
+      name: string;
+      global: bool;
+    }
+  | Unnamed_label of int
 
 type inst =
   | Move of move
@@ -147,9 +149,9 @@ let op2str (o: operand): string =
   | Val v -> val2str v
 
 let label2str (l: label): string =
-  match l.name with
-  | Some s -> s
-  | None -> "LC"
+  match l with
+  | Named_label nl -> nl.name
+  | Unnamed_label id -> "LC<" ^ (string_of_int id) ^ ">"
 
 let print_insts (is: insts): unit =
   let f =
@@ -165,8 +167,8 @@ let print_insts (is: insts): unit =
           | Ret r ->
             Printf.printf "ret %s"
               (op2str r.value)
-          | Enter -> print_endline "\r{"
-          | Leave -> print_endline "\r}"
+          | Enter -> print_endline "Enter"
+          | Leave -> print_endline "Leave"
           | Label l ->
             Printf.printf "\r%s:"
               (label2str l)
