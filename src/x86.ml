@@ -104,12 +104,14 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     let rr: string = "%" ^ getreg b 0 in
     if String.equal op rr then
       Il.smod_emit s "nop"
-    else
+    else begin 
       Il.smod_emit s
-        (Printf.sprintf "mov%c\t%s, %s"
+        (Printf.sprintf "mov%c\t%s, %s\n"
           (getmnemonicsuffix b)
           (emit_operand s r.value)
           ("%" ^ getreg b 0))
+    end;
+    Il.smod_emit s (Printf.sprintf "\tjmp .LC%d" r.pc)
   | Enter ->
     Il.smod_emit s "pushq\t%rbp\n";
     Il.smod_emit s "\tmovq\t%rsp, %rbp"

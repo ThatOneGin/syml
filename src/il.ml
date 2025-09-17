@@ -31,17 +31,18 @@ type move = {
     name: string; (* additional data to use in ra.ml *)
   }
 
-type ret = {
-    ty: Dtypes.datatype;
-    mutable value: operand;
-  }
-
 type label =
   | Named_label of {
       name: string;
       global: bool;
     }
   | Unnamed_label of int
+
+type ret = {
+    ty: Dtypes.datatype;
+    mutable value: operand;
+    mutable pc: int;
+  }
 
 type inst =
   | Move of move

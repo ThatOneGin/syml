@@ -22,8 +22,7 @@ let dostring (name: string) (s: string): unit =
   let cs: code_State = cs_new smod in
   Il.smod_open_out smod (name ^ ".s");
   cs_toplevel cs t;
-  cs_finish cs;
-  emit_insts smod cs.code;
+  emit_insts smod (cs_finish cs);
   emit_constants smod;
   Il.smod_close_out smod;
   ()
