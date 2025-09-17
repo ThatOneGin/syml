@@ -33,6 +33,7 @@ let ps_tk2str (ps: parser_State): string =
   | TK_let -> "<let>"
   | TK_def -> "<def>"
   | TK_return -> "<return>"
+  | TK_asm -> "<asm>"
   | TK_nil -> "<nil>"
   | TK_int -> "<int>"
   | TK_str -> "<str>"
@@ -177,12 +178,20 @@ let parse_return (ps: parser_State): Ast.stat =
     Return e
   | _ -> ps_unexpected ps "'return' token"
 
-(* stat = var | return *)
+(* asm = 'asm' string *)
+let parse_asm (ps: parser_State): Ast.stat =
+  ps_expect_sym ps TK_asm "";
+  match ps.peek with
+  | TK_string s -> ps_next ps; Ast.Asm s;
+  | _ -> ps_unexpected ps "string"
+
+(* stat = var | return | asm *)
 let parse_stat (ps: parser_State): Ast.stat =
   let stat: Ast.stat = 
     match ps.peek with
     | TK_let -> parse_var ps
     | TK_return -> parse_return ps
+    | TK_asm -> parse_asm ps
     | _ -> ps_unexpected ps "a statement"
   in
   while ps.peek = TK_semicolon do

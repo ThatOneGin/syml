@@ -50,6 +50,7 @@ type inst =
   | Enter (* enter next stack frame *)
   | Leave (* leave current stack frame *)
   | Label of label
+  | Asm of string
 
 type insts = inst array
 
@@ -173,6 +174,7 @@ let print_insts (is: insts): unit =
           | Label l ->
             Printf.printf "\r%s:"
               (label2str l)
+          | Asm s -> Printf.printf "%s" s
       end;
       print_newline ()
   in

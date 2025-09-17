@@ -1,0 +1,6 @@
+def main() {
+  let x: str = "Hello, world"
+  asm "movq %rax, %rdi"
+  asm "call puts"
+  return 0
+}

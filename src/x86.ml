@@ -123,8 +123,12 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     | Named_label nl ->
       (if nl.global then Il.smod_emit s (".globl " ^ nl.name ^ "\n"));
       Il.smod_emit s (Printf.sprintf "%s:" nl.name);
-    | Unnamed_label id -> Il.smod_emit s (Printf.sprintf "/* label constant %d */\n.LC%d:" id id);
-  end in
+    | Unnamed_label id -> Il.smod_emit s (Printf.sprintf "/* label constant %d */\n.LC%d:" id id)
+  end
+  | Asm str -> Il.smod_emit s
+    (Printf.sprintf
+      "%s\t/* inline */" str)
+  in
   emit_newline s
 
 let emit_insts (s: Il.smod) (is: Il.insts): unit =

@@ -13,6 +13,7 @@ type expr =
 type stat =
   | Var of vard
   | Return of expr
+  | Asm of string
 and toplevel = (* unused *)
   | Func of funct
   | Globvar of vard

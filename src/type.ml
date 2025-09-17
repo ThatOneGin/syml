@@ -62,6 +62,7 @@ let check_stat (ts: type_State) (s: stat): unit =
   match s with
   | Var v -> check_vard ts v; ()
   | Return r -> check_return ts r; ()
+  | Asm _ -> ()
 
 let check_func (ts: type_State) (f: toplevel): unit =
   match f with

@@ -14,6 +14,7 @@ type token =
   | TK_let
   | TK_def
   | TK_return
+  | TK_asm
 (* types *)
   | TK_nil (* nil is also a keyword *)
   | TK_int
@@ -46,6 +47,7 @@ let reserved_table = [
     ("let", TK_let);
     ("def", TK_def);
     ("return", TK_return);
+    ("asm", TK_asm);
     ("nil", TK_nil);
     ("int", TK_int);
     ("str", TK_str);

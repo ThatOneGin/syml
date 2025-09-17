@@ -67,6 +67,7 @@ let code_stat (cs: code_State) (s: stat): unit =
   match s with
   | Return r -> code_ret cs r
   | Var v -> code_var cs v
+  | Asm s -> cs_code cs (Il.Asm s)
 
 let code_func (cs: code_State) (f: funct): unit = 
   code_namedlabel cs f.name true; 
