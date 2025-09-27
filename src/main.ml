@@ -24,8 +24,8 @@ let dostring (name: string) (s: string): unit =
     check_func ts t;
     cs_toplevel cs t;
     emit_insts smod (cs_finish cs);
-    emit_constants smod;
   done;
+  emit_constants smod;
   Il.smod_close_out smod;
   ()
 ;;

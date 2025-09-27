@@ -11,8 +11,6 @@ test:
 .LC1:
 	popq	%rbp
 	ret
-.LK0:
-	.asciz "Hello, world!\n"
 	.globl main
 main:
 	/* label constant 2 */
