@@ -27,9 +27,9 @@ let ps_next (ps: parser_State): unit =
 
 let ps_tk2str (ps: parser_State): string =
   match ps.peek with
-  | TK_identifier s -> "'" ^ s ^ "'"
-  | TK_number n -> "'" ^ n ^ "'"
-  | TK_string s -> "'" ^ s ^ "'"
+  | TK_identifier s -> "identifier '" ^ s ^ "'"
+  | TK_number n -> "number '" ^ n ^ "'"
+  | TK_string s -> "string '" ^ s ^ "'"
   | TK_let -> "<let>"
   | TK_def -> "<def>"
   | TK_return -> "<return>"
@@ -185,6 +185,7 @@ let parse_asm (ps: parser_State): Ast.stat =
   | TK_string s -> ps_next ps; Ast.Asm s;
   | _ -> ps_unexpected ps "string"
 
+(* voidcall = IDENTIFIER '(' ')' *)
 let parse_voidcall (ps: parser_State): Ast.stat =
   match ps.peek with
   | TK_identifier name ->
