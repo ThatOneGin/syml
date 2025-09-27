@@ -73,7 +73,7 @@ let code_func (cs: code_State) (f: funct): unit =
   code_namedlabel cs f.name true; 
   code_unnamedlabel cs;
   code_enter cs;
-  Array.iter (fun (s: stat): unit -> code_stat cs s) f.body;
+  Array.iter (fun (s: stat): unit -> code_stat cs s) f.blk.body;
   code_unnamedlabel cs; (* TODO: patch function return to here *)
   code_leave cs
 

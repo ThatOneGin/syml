@@ -199,7 +199,19 @@ let parse_stat (ps: parser_State): Ast.stat =
   done;
   stat
 
-  (* func = 'def' '(' ')' '{' stat list '}' *)
+(* block = '{' stat list '}' *)
+let parse_block (ps: parser_State): Ast.block =
+  let blk: Ast.block = {body=[||]} in
+  ps_expect_sym ps TK_lbrace "expected '{'";
+  ps_enter ps; (* enter level *)
+  while ps.peek != TK_rbrace  && ps.peek != TK_EOF do
+    Ast.block_append blk (parse_stat ps);
+  done;
+  ps_leave ps; (* leave level *)
+  ps_expect_sym ps TK_rbrace "expected '}'";
+  blk
+
+(* func = 'def' '(' ')' '{' stat list '}' *)
 let parse_func (ps: parser_State): Ast.toplevel =
   match ps.peek with
   | TK_def ->
@@ -216,14 +228,7 @@ let parse_func (ps: parser_State): Ast.toplevel =
     let fdesc: Ast.funct = {
         name = name;
         ty = ty;
-        body = [||];
+        blk = parse_block ps;
       } in
-    ps_expect_sym ps TK_lbrace "expected '{'";
-    ps_enter ps; (* enter level *)
-    while ps.peek != TK_rbrace do
-      Ast.func_append fdesc (parse_stat ps);
-    done;
-    ps_leave ps; (* leave level *)
-    ps_expect_sym ps TK_rbrace "expected '}'";
     Ast.Func fdesc
   | _ -> ps_unexpected ps "'def' token"

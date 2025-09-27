@@ -17,9 +17,12 @@ type stat =
 and toplevel = (* unused *)
   | Func of funct
   | Globvar of vard
+and block = {
+    mutable body: stat array;
+  }
 and funct = {
   name: string;
-  mutable body: stat array;
+  blk: block;
   ty: Dtypes.datatype;
 }
 and vard = {
@@ -28,5 +31,5 @@ and vard = {
     value: expr;
   }
 
-let func_append (f: funct) (s: stat): unit =
-  f.body <- Array.append f.body [|s|]; ()
+let block_append (b: block) (s: stat): unit =
+  b.body <- Array.append b.body [|s|]; ()

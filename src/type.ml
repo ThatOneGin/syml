@@ -68,6 +68,6 @@ let check_func (ts: type_State) (f: toplevel): unit =
   match f with
   | Func ft ->
     ts.curr <- ft.ty;
-    Array.iter (fun (s: stat) -> check_stat ts s) ft.body;
+    Array.iter (fun (s: stat) -> check_stat ts s) ft.blk.body;
     ts_reg_variable ts ft.name ft.ty; ()
   | _ -> ()
