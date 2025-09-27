@@ -11,6 +11,7 @@ type ctxt = {
   mutable sp: int; (* stack pointer *)
   mutable reg: int; (* first available register *)
   var_map: (string, reg) Hashtbl.t ;
+  args: reg list; (* function arguments *)
 }
 
 let ctxt_new (smod: smod): ctxt = {
@@ -19,6 +20,7 @@ let ctxt_new (smod: smod): ctxt = {
     sp = 0;
     reg = 0;
     var_map = Hashtbl.create 32;
+    args = (Il.get_arch_funcargs smod.arch);
   }
 
 let ctxt_getvar (ctxt: ctxt) (name: string): reg =
@@ -57,6 +59,15 @@ let check_operand (ctxt: ctxt) (o: operand): unit =
   | _ -> ()
 ;;
 
+let alloc_call (ctxt: ctxt) (c: call): unit =
+  let f = (fun (i: int) (o: operand): unit ->
+    check_operand ctxt o; (* check the operand *)
+    c.regs <- Array.append c.regs [|(List.nth ctxt.args i)|];
+    ())
+  in
+  Array.iteri f c.args
+;;
+
 let alloc_reg_for_inst (ctxt: ctxt) (i: inst): unit =
   match i with
   | Move m ->
@@ -73,6 +84,7 @@ let alloc_reg_for_inst (ctxt: ctxt) (i: inst): unit =
   | Leave -> free_all ctxt
   | Label _ -> ()
   | Asm _ -> ()
+  | Call c -> alloc_call ctxt c
 
 let ctxt_allocregs (ctxt: ctxt) (i: insts): unit =
   Array.iter

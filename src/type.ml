@@ -58,11 +58,22 @@ let check_return (ts: type_State) (r: expr): unit =
       (type2str ts.curr) (type2str texp))
   else ()
 
+let check_call (ts: type_State) (c: vcall): unit =
+  let t = ts_query_variable ts c.name in
+  if t = Dtypes.Nil then ()
+  else
+    type_error
+    (Printf.sprintf
+      "A call statement must return nil, but instead returns %s (function '%s')."
+      (type2str t)
+      c.name)
+
 let check_stat (ts: type_State) (s: stat): unit =
   match s with
   | Var v -> check_vard ts v; ()
   | Return r -> check_return ts r; ()
   | Asm _ -> ()
+  | Voidcall c -> check_call ts c; ()
 
 let check_func (ts: type_State) (f: toplevel): unit =
   match f with

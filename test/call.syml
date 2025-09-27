@@ -1,0 +1,10 @@
+def test(): nil {
+  let x: str = "Hello, world!\n"
+  asm "movq %rax, %rdi"
+  asm "call puts"
+}
+
+def main() {
+  test()
+  return 0
+}

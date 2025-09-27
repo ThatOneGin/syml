@@ -14,6 +14,7 @@ type stat =
   | Var of vard
   | Return of expr
   | Asm of string
+  | Voidcall of vcall
 and toplevel = (* unused *)
   | Func of funct
   | Globvar of vard
@@ -30,6 +31,10 @@ and vard = {
     ty: Dtypes.datatype;
     value: expr;
   }
+and vcall = {
+  name: string; (* for now it's only a string *)
+  args: expr array;
+}
 
 let block_append (b: block) (s: stat): unit =
   b.body <- Array.append b.body [|s|]; ()

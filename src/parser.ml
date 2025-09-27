@@ -185,6 +185,18 @@ let parse_asm (ps: parser_State): Ast.stat =
   | TK_string s -> ps_next ps; Ast.Asm s;
   | _ -> ps_unexpected ps "string"
 
+let parse_voidcall (ps: parser_State): Ast.stat =
+  match ps.peek with
+  | TK_identifier name ->
+    ps_next ps;
+    ps_expect_sym ps TK_lparen "Expected '(' in function call.";
+    ps_expect_sym ps TK_rparen "Expected ')' in argument list.";
+    Ast.Voidcall {
+      name = name;
+      args = [||];
+    }
+  | _ -> ps_unexpected ps "statement"
+
 (* stat = var | return | asm *)
 let parse_stat (ps: parser_State): Ast.stat =
   let stat: Ast.stat = 
@@ -192,7 +204,7 @@ let parse_stat (ps: parser_State): Ast.stat =
     | TK_let -> parse_var ps
     | TK_return -> parse_return ps
     | TK_asm -> parse_asm ps
-    | _ -> ps_unexpected ps "a statement"
+    | _ -> parse_voidcall ps
   in
   while ps.peek = TK_semicolon do
     ps_next ps;

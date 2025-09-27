@@ -80,6 +80,16 @@ let emit_operand (s: Il.smod) (o: Il.operand): string =
   end
   | Val v -> emit_val s v
 
+let emit_call (s: Il.smod) (c: Il.call): unit =
+  let f = fun (i: int) (o: Il.operand): unit ->
+    Il.smod_emit s
+      (Printf.sprintf "movq %%%s, %%%s"
+        (emit_operand s o)
+        (emit_reg c.regs.(i)))
+  in
+  Array.iteri f c.args
+;;
+
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   emit_indent s;
   let () =
@@ -128,6 +138,12 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Asm str -> Il.smod_emit s
     (Printf.sprintf
       "%s\t/* inline */" str)
+  | Call c ->
+    if (Array.length c.args) > 0 then  begin
+      emit_call s c;
+      Il.smod_emit s (Printf.sprintf "\tcall %s" c.f)
+    end else
+      Il.smod_emit s (Printf.sprintf "call %s" c.f)
   in
   emit_newline s
 

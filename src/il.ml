@@ -44,6 +44,12 @@ type ret = {
     mutable pc: int;
   }
 
+type call = {
+    f: string;
+    mutable args: operand array; (* function arguments *)
+    mutable regs: reg array; (* function arguments destination *)
+  }
+
 type inst =
   | Move of move
   | Ret of ret
@@ -51,6 +57,7 @@ type inst =
   | Leave (* leave current stack frame *)
   | Label of label
   | Asm of string
+  | Call of call
 
 type insts = inst array
 
@@ -66,6 +73,16 @@ type smod = {
 let get_arch_nregister (a: Common.target_arch): int =
   match a with
   | Linux_X86_64 -> 14 (* amount of general-purpose registers *)
+
+let get_arch_funcargs (a: Common.target_arch): reg list =
+  match a with
+  | Linux_X86_64 ->
+    [Rreg (4, Bits64); (* rdi *)
+     Rreg (5, Bits64); (* rsi *)
+     Rreg (3, Bits64); (* rdx *)
+     Rreg (2, Bits64); (* rcx *)
+     Rreg (6, Bits64); (* r8 *)
+     Rreg (7, Bits64)] (* r9 *)
 
 let smod_create (name: string) (arch: Common.target_arch): smod =
    {modname = name;
@@ -175,6 +192,7 @@ let print_insts (is: insts): unit =
             Printf.printf "\r%s:"
               (label2str l)
           | Asm s -> Printf.printf "%s" s
+          | Call c -> Printf.printf "call %s" c.f
       end;
       print_newline ()
   in

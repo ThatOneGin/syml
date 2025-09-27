@@ -63,11 +63,21 @@ let code_var (cs: code_State) (v: vard): unit =
     src = op;
   })
 
+let code_call (cs: code_State) (c: vcall): unit =
+  cs_code cs (Il.Call {
+    f = c.name;
+    args = [||];
+    regs = [||];
+  });
+  ()
+;;
+
 let code_stat (cs: code_State) (s: stat): unit =
   match s with
   | Return r -> code_ret cs r
   | Var v -> code_var cs v
   | Asm s -> cs_code cs (Il.Asm s)
+  | Voidcall c -> code_call cs c
 
 let code_func (cs: code_State) (f: funct): unit = 
   code_namedlabel cs f.name true; 
