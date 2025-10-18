@@ -29,16 +29,60 @@ let is_numeric_type (ty: datatype): bool =
   | I64 | I32 | I16 | I8 | Int -> true
   | _ -> false
 
+(* pointer helper: adjust `Ptr` to match your Dtypes pointer constructor *)
+let is_pointer_type (ty: datatype): bool =
+  match ty with
+  | Ptr _ -> true
+  | _ -> false
+
+let pointed_type (ty: datatype): datatype option =
+  match ty with
+  | Ptr t -> Some t
+  | _ -> None
+
 let equal (ty1: datatype) (ty2: datatype): bool =
   if (is_numeric_type ty1) && (is_numeric_type ty2) then true
-  else ty1 = ty2
+  else
+    match (ty1, ty2) with
+    | (Ptr t1, Ptr t2) -> t1 = t2
+    | _ -> ty1 = ty2
 
-let typeof_expr (ts: type_State) (e: expr): datatype =
+let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
+  let (lhs, op, rhs) = match b with
+    | Binop (lhs, op, rhs) -> (lhs, op, rhs)
+    | _ -> Common.unreachable "" ""
+  in
+  let lt = typeof_expr ts lhs in
+  let rt = typeof_expr ts rhs in
+  (* helper to raise a nice error *)
+  let invalid () =
+    type_error (Printf.sprintf "invalid operands to binary operator (%s, %s)"
+      (type2str lt) (type2str rt))
+  in
+  match op with
+  | OADD | OSUB ->
+    (* int + int -> int *)
+    if is_numeric_type lt && is_numeric_type rt then I32
+    (* pointer + int -> pointer *)
+    else if is_pointer_type lt && is_numeric_type rt then lt
+    (* int + pointer -> pointer *)
+    else if op = OADD && is_numeric_type lt && is_pointer_type rt then rt
+    (* pointer - pointer -> ptrdiff *)
+    else if op = OSUB && is_pointer_type lt && is_pointer_type rt then
+      (match (pointed_type lt, pointed_type rt) with
+       | (Some ptl, Some ptr) when ptl = ptr -> Int
+       | _ -> type_error "pointer subtraction requires pointers to same type")
+    else invalid ()
+  | OMUL | ODIV ->
+    if is_numeric_type lt && is_numeric_type rt then I32
+    else invalid ()
+  | _ -> I32
+and typeof_expr (ts: type_State) (e: expr): datatype =
   match e with
   | Number _ -> Int
   | String _ -> Str
   | Ident s -> ts_query_variable ts s
-  | _ -> I32
+  | Binop _ -> check_binop ts e
 
 let check_vard (ts: type_State) (v: vard): unit =
   let texp = typeof_expr ts v.value in

@@ -31,6 +31,12 @@ let ctxt_getvar (ctxt: ctxt) (name: string): reg =
 let ctxt_stack_alloc (ctxt: ctxt) (n: int): unit =
   ctxt.sp <- ctxt.sp + n; ()
 
+let alloc_var (ctxt: ctxt) (name: string) (ty: Dtypes.datatype): reg =
+  ctxt_stack_alloc ctxt (bits2size (type2bits ty));
+  let loc = Spill ctxt.sp in
+  Hashtbl.replace ctxt.var_map name loc;
+  loc
+
 let alloc_simple_reg (ctxt: ctxt) (ty: Dtypes.datatype): reg =
   if ctxt.reg = ctxt.nregs then begin
     ctxt_stack_alloc ctxt (bits2size (type2bits ty));
@@ -40,6 +46,9 @@ let alloc_simple_reg (ctxt: ctxt) (ty: Dtypes.datatype): reg =
     ctxt.reg <- ctxt.reg + 1;
     Rreg (r, (type2bits ty))
   end
+
+let scratch_reg (ty: Dtypes.datatype): reg = 
+  Rreg (0, (type2bits ty))
 
 (* used when a leave instruction is reached *)
 let free_all (ctxt: ctxt): unit =
@@ -68,23 +77,46 @@ let alloc_call (ctxt: ctxt) (c: call): unit =
   Array.iteri f c.args
 ;;
 
+let free_reg (ctxt: ctxt) (r: reg): unit =
+  match r with
+  | Spill s ->
+    ctxt.sp <- ctxt.sp - s; ()
+  | Rreg (r, _) ->
+    if ctxt.reg - 1 != r then
+      syml_errorf "bad register deallocation"
+    else
+      ctxt.reg <- ctxt.reg - 1
+
 let alloc_reg_for_inst (ctxt: ctxt) (i: inst): unit =
   match i with
   | Move m ->
-    m.dest <- Some (alloc_simple_reg ctxt m.ty);
+    begin
+      match m.dest with
+      | Some _ -> ()
+      | None ->
+        m.dest <-
+        Some (alloc_simple_reg ctxt m.ty);
+    end;
     let loc = (* unwrap m.dest *)
       match m.dest with
       | Some r -> r
       | None -> unreachable "Ra" "while unwrapping instruction"
     in
     check_operand ctxt m.src;
-    Hashtbl.replace ctxt.var_map m.name loc
+    begin
+      match m.name with
+        | Some name -> Hashtbl.replace ctxt.var_map name loc
+        | None -> ()
+    end
   | Ret r -> check_operand ctxt r.value
   | Enter -> ()
   | Leave -> free_all ctxt
   | Label _ -> ()
   | Asm _ -> ()
   | Call c -> alloc_call ctxt c
+  | Binop b ->
+    check_operand ctxt b.left;
+    check_operand ctxt b.right
 
 let ctxt_allocregs (ctxt: ctxt) (i: insts): unit =
   Array.iter

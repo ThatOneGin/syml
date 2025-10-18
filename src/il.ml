@@ -3,6 +3,8 @@
  *  Intermediate language
  *)
 
+let noname = ""
+
 type bits = 
   | Bits8
   | Bits16
@@ -28,7 +30,7 @@ type move = {
     ty: Dtypes.datatype;
     mutable dest: reg option;
     mutable src: operand;
-    name: string; (* additional data to use in ra.ml *)
+    name: string option; (* additional data to use in ra.ml *)
   }
 
 type label =
@@ -50,6 +52,13 @@ type call = {
     mutable regs: reg array; (* function arguments destination *)
   }
 
+type binop = {
+    left: operand;
+    right: operand;
+    op: Ast.operator;
+    ty: Dtypes.datatype;
+  }
+
 type inst =
   | Move of move
   | Ret of ret
@@ -58,6 +67,7 @@ type inst =
   | Label of label
   | Asm of string
   | Call of call
+  | Binop of binop
 
 type insts = inst array
 
@@ -133,7 +143,7 @@ let smod_push_const (s: smod) (k: value): int =
 let type2bits (ty: Dtypes.datatype): bits =
   match ty with
   | I32 | Int -> Bits32
-  | I64 | Str -> Bits64
+  | Ptr _ | I64 | Str -> Bits64
   | Nil | I8 -> Bits8
   | I16 -> Bits16
 
@@ -178,11 +188,18 @@ let print_insts (is: insts): unit =
       print_char '\t';
       begin
         match i with
-          | Move m ->
-            Printf.printf "%s <- %s ; %s"
-              m.name
-              (op2str m.src)
-              (opt_reg2str m.dest)
+          | Move m -> begin
+            match m.name with
+            | Some name ->
+              Printf.printf "%s <- %s ; %s"
+                name
+                (op2str m.src)
+                (opt_reg2str m.dest)
+            | None ->
+              Printf.printf "%s <- %s"
+                (opt_reg2str m.dest)
+                (op2str m.src)
+            end
           | Ret r ->
             Printf.printf "ret %s"
               (op2str r.value)
@@ -193,6 +210,18 @@ let print_insts (is: insts): unit =
               (label2str l)
           | Asm s -> Printf.printf "%s" s
           | Call c -> Printf.printf "call %s" c.f
+          | Binop b ->
+            let op = match b.op with
+              | Ast.OADD -> "add"
+              | Ast.ODIV -> "div"
+              | Ast.OMUL -> "mul"
+              | Ast.OSUB -> "sub"
+              | _ -> "invalid"
+            in
+            Printf.printf "%s %s, %s"
+              op
+              (op2str b.left)
+              (op2str b.right)
       end;
       print_newline ()
   in

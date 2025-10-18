@@ -125,7 +125,35 @@ let parse_primaryexpr (ps: parser_State): Ast.expr =
   | Some e -> ps_next ps; e
   | None -> ps_unexpected ps "string, number or valid identifier"
 
-let parse_expr (ps: parser_State) = parse_primaryexpr ps
+let getoperator (ps: parser_State): Ast.operator =
+  match ps.peek with
+  | TK_plus -> Ast.OADD
+  | TK_minus -> Ast.OSUB
+  | TK_mul -> Ast.OMUL
+  | TK_div -> Ast.ODIV
+  | _ -> ps_unexpected ps "binary operator"
+
+let parse_mulexpr (ps: parser_State): Ast.expr =
+  let lhs: Ast.expr ref = ref (parse_primaryexpr ps) in
+  while ps.peek = TK_div || ps.peek = TK_mul do
+    let op: Ast.operator = getoperator ps in
+    ps_next ps;
+    let rhs: Ast.expr = parse_primaryexpr ps in
+    lhs := Ast.Binop (!lhs, op, rhs);
+  done;
+  !lhs
+
+let parse_addexpr (ps: parser_State): Ast.expr =
+  let lhs: Ast.expr ref = ref (parse_mulexpr ps) in
+  while ps.peek = TK_plus || ps.peek = TK_minus do
+    let op: Ast.operator = getoperator ps in
+    ps_next ps;
+    let rhs: Ast.expr = parse_mulexpr ps in
+    lhs := Ast.Binop (!lhs, op, rhs);
+  done;
+  !lhs
+
+let parse_expr (ps: parser_State) = parse_addexpr ps
 
 (* Statement parsing *)
 

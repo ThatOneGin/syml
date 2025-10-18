@@ -83,12 +83,27 @@ let emit_operand (s: Il.smod) (o: Il.operand): string =
 let emit_call (s: Il.smod) (c: Il.call): unit =
   let f = fun (i: int) (o: Il.operand): unit ->
     Il.smod_emit s
-      (Printf.sprintf "movq %%%s, %%%s"
+      (Printf.sprintf "movq\t%%%s,\t%%%s"
         (emit_operand s o)
         (emit_reg c.regs.(i)))
   in
   Array.iteri f c.args
 ;;
+
+let emit_binop (s: Il.smod) (b: Il.binop): unit =
+  let ins = match b.op with
+    | Ast.OADD -> "add"
+    | Ast.ODIV -> "idiv"
+    | Ast.OMUL -> "imul"
+    | Ast.OSUB -> "sub"
+    | _ -> "; " (* unreachable *)
+  in
+  Il.smod_emit s
+    (Printf.sprintf "%s%c\t%s,\t%s"
+      ins
+      (getmnemonicsuffix (Il.type2bits b.ty))
+      (emit_operand s b.right)
+      (emit_operand s b.left))
 
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   emit_indent s;
@@ -103,7 +118,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
           "No register found in instruction.")
     in
     Il.smod_emit s
-      (Printf.sprintf "mov%c\t%s, %s"
+      (Printf.sprintf "mov%c\t%s,\t%s"
         (getmnemonicsuffix (Il.type2bits m.ty))
         (emit_operand s m.src)
         (emit_reg dest))
@@ -116,12 +131,12 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
       Il.smod_emit s "nop"
     else begin 
       Il.smod_emit s
-        (Printf.sprintf "mov%c\t%s, %s\n"
+        (Printf.sprintf "mov%c\t%s,\t%s\n"
           (getmnemonicsuffix b)
           (emit_operand s r.value)
           ("%" ^ getreg b 0))
     end;
-    Il.smod_emit s (Printf.sprintf "\tjmp .LC%d" r.pc)
+    Il.smod_emit s (Printf.sprintf "\tjmp\t.LC%d" r.pc)
   | Enter ->
     Il.smod_emit s "pushq\t%rbp\n";
     Il.smod_emit s "\tmovq\t%rsp, %rbp"
@@ -141,9 +156,10 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Call c ->
     if (Array.length c.args) > 0 then  begin
       emit_call s c;
-      Il.smod_emit s (Printf.sprintf "\tcall %s" c.f)
+      Il.smod_emit s (Printf.sprintf "\tcall\t%s" c.f)
     end else
-      Il.smod_emit s (Printf.sprintf "call %s" c.f)
+      Il.smod_emit s (Printf.sprintf "call\t%s" c.f)
+  | Binop b -> emit_binop s b
   in
   emit_newline s
 

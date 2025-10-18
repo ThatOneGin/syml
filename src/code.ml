@@ -6,15 +6,18 @@
 open Il
 open Ast
 open Ra
+open Common
 
 (* state needed to convert AST to IL *)
 type code_State = {
+  mutable ctxt: ctxt;
   smod: smod;
   mutable code: insts;
   mutable ty: Dtypes.datatype;
 }
 
 let cs_new (smod: smod): code_State = {
+    ctxt = ctxt_new smod;
     smod = smod;
     code = [||];
     ty = Dtypes.Nil;
@@ -41,25 +44,67 @@ let code_unnamedlabel (cs: code_State): unit =
 
 (* -- tranlations -- *)
 
-let code_exp (e: expr): value =
+let code_primexp (e: expr): value =
   match e with
   | Number i -> Il.Int i
   | String s -> Il.Str s
   | Ident s  -> Il.Var {name = s; reg = None;}
   | _ -> Il.Int 0
 
+(* compile a binary expressino *)
+let rec code_binopexp (cs: code_State) (e: expr): operand =
+  match e with
+  | Binop (l, o, r) ->
+    let lhs_reg = alloc_simple_reg cs.ctxt cs.ty in
+    let rhs_reg = alloc_simple_reg cs.ctxt cs.ty in
+    (* move the left hand *)
+    cs_code cs (Move {
+      name = None;
+      ty = cs.ty;
+      dest = Some lhs_reg;
+      src = code_exp cs l;
+    });
+    (* move the right hand *)
+    cs_code cs (Move {
+      name = None;
+      ty = cs.ty;
+      dest = Some rhs_reg;
+      src = code_exp cs r;
+    });
+    let b = Il.Binop {
+      left = Reg (Some lhs_reg);
+      right = Reg (Some rhs_reg);
+      op = o;
+      ty = cs.ty;
+    } in
+    cs_code cs b;
+    free_reg cs.ctxt rhs_reg; (* free the right register *)
+    free_reg cs.ctxt lhs_reg; (* and the left one *)
+    Reg (Some lhs_reg) (* but return it *)
+  | _ -> unreachable "Codegen" "expected binary expression";
+and code_exp (cs: code_State) (e: expr): operand =
+  match e with
+  | Binop _ ->
+    code_binopexp cs e
+  | _ ->
+    Val (code_primexp e)
+
 let code_ret (cs: code_State) (r: expr): unit =
-  let op = Val (code_exp r) in
+  let op = (code_exp cs r) in
   cs_code cs (Ret {ty = cs.ty;
                   value = op;
                   pc = 0;})
 
 let code_var (cs: code_State) (v: vard): unit =
-  let op = Val (code_exp v.value) in
+  let dest = Ra.alloc_var cs.ctxt v.name v.ty in
+  let old_cs_ty = cs.ty in
+  cs.ty <- v.ty; (* for code_binopexp *)
+  let op = (code_exp cs v.value) in
+  cs.ty <- old_cs_ty; (* restore helper *)
   cs_code cs (Move {
-    name = v.name;
+    name = None;
     ty = v.ty;
-    dest = None;
+    dest = Some dest;
     src = op;
   })
 
@@ -106,10 +151,10 @@ let patch_ret (cs: code_State): unit =
   Array.iter iter cs.code; ()
 
 let cs_finish (cs: code_State): insts =
-  let ctxt = ctxt_new cs.smod in
   patch_ret cs;
-  ctxt_allocregs ctxt cs.code;
+  ctxt_allocregs cs.ctxt cs.code;
   let tmp: insts = cs.code in
   cs.code <- [||];
   cs.ty <- Dtypes.Nil;
+  cs.ctxt <- ctxt_new cs.smod;
   tmp
