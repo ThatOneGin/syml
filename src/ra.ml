@@ -79,8 +79,7 @@ let alloc_call (ctxt: ctxt) (c: call): unit =
 
 let free_reg (ctxt: ctxt) (r: reg): unit =
   match r with
-  | Spill s ->
-    ctxt.sp <- ctxt.sp - s; ()
+  | Spill _ -> ()
   | Rreg (r, _) ->
     if ctxt.reg - 1 != r then
       syml_errorf "bad register deallocation"

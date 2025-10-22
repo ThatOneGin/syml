@@ -128,7 +128,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     let op: string = emit_operand s r.value in
     let rr: string = "%" ^ getreg b 0 in
     if String.equal op rr then
-      Il.smod_emit s "nop"
+      Il.smod_emit s "nop\n"
     else begin 
       Il.smod_emit s
         (Printf.sprintf "mov%c\t%s,\t%s\n"
