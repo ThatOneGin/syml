@@ -113,18 +113,6 @@ let parse_string (ps: parser_State): Ast.expr =
   | TK_string s -> Ast.String s
   | _ -> ps_unexpected ps "string"
 
-let parse_primaryexpr (ps: parser_State): Ast.expr =
-  let expr: Ast.expr option =
-    match ps.peek with
-    | TK_number _ -> Some (parse_number ps)
-    | TK_identifier _ -> Some (parse_name ps)
-    | TK_string _ -> Some (parse_string ps)
-    | _ -> None
-  in
-  match expr with
-  | Some e -> ps_next ps; e
-  | None -> ps_unexpected ps "string, number or valid identifier"
-
 let getoperator (ps: parser_State): Ast.operator =
   match ps.peek with
   | TK_plus -> Ast.OADD
@@ -133,7 +121,33 @@ let getoperator (ps: parser_State): Ast.operator =
   | TK_div -> Ast.ODIV
   | _ -> ps_unexpected ps "binary operator"
 
-let parse_mulexpr (ps: parser_State): Ast.expr =
+let rec parse_primaryexpr (ps: parser_State): Ast.expr =
+  let expr: Ast.expr option =
+    match ps.peek with
+    | TK_number _ -> begin
+      let e = Some (parse_number ps) in
+      ps_next ps;
+      e end
+    | TK_identifier _ -> begin
+      let e = Some (parse_name ps) in
+      ps_next ps;
+      e end
+    | TK_string _ -> begin
+      let e = Some (parse_string ps) in
+      ps_next ps;
+      e end
+    | TK_lparen ->
+      ps_next ps;
+      let paren_exp: Ast.expr = parse_expr ps in
+      ps_expect_sym ps TK_rparen
+        "')' to close grouping expression";
+      Some paren_exp
+    | _ -> None
+  in
+  match expr with
+  | Some e -> e
+  | None -> ps_unexpected ps "expression"
+and parse_mulexpr (ps: parser_State): Ast.expr =
   let lhs: Ast.expr ref = ref (parse_primaryexpr ps) in
   while ps.peek = TK_div || ps.peek = TK_mul do
     let op: Ast.operator = getoperator ps in
@@ -142,8 +156,7 @@ let parse_mulexpr (ps: parser_State): Ast.expr =
     lhs := Ast.Binop (!lhs, op, rhs);
   done;
   !lhs
-
-let parse_addexpr (ps: parser_State): Ast.expr =
+and parse_addexpr (ps: parser_State): Ast.expr =
   let lhs: Ast.expr ref = ref (parse_mulexpr ps) in
   while ps.peek = TK_plus || ps.peek = TK_minus do
     let op: Ast.operator = getoperator ps in
@@ -152,8 +165,7 @@ let parse_addexpr (ps: parser_State): Ast.expr =
     lhs := Ast.Binop (!lhs, op, rhs);
   done;
   !lhs
-
-let parse_expr (ps: parser_State) = parse_addexpr ps
+and parse_expr (ps: parser_State) = parse_addexpr ps
 
 (* Statement parsing *)
 
