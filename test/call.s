@@ -4,7 +4,7 @@ test:
 .LC0:
 	pushq	%rbp
 	movq	%rsp, %rbp
-	movq	$.LK0, %rax
+	movq	$.LK0,	-8(%rbp)
 	movq %rax, %rdi	/* inline */
 	call puts	/* inline */
 	/* label constant 1 */
@@ -17,9 +17,9 @@ main:
 .LC2:
 	pushq	%rbp
 	movq	%rsp, %rbp
-	call test
-	movl	$0, %eax
-	jmp .LC3
+	call	test
+	movl	$0,	%eax
+	jmp	.LC3
 	/* label constant 3 */
 .LC3:
 	popq	%rbp

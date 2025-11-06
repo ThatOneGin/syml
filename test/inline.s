@@ -4,11 +4,11 @@ main:
 .LC0:
 	pushq	%rbp
 	movq	%rsp, %rbp
-	movq	$.LK0, %rax
+	movq	$.LK0,	-8(%rbp)
 	movq %rax, %rdi	/* inline */
 	call puts	/* inline */
-	movl	$0, %eax
-	jmp .LC1
+	movl	$0,	%eax
+	jmp	.LC1
 	/* label constant 1 */
 .LC1:
 	popq	%rbp

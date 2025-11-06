@@ -11,6 +11,13 @@ main:
 	movl	$3,	%ebx
 	imull	%ebx,	%eax
 	movl	%eax,	-4(%rbp)
+	movl	$2,	%eax
+	movl	$4,	%ecx
+	movl	$3,	%edx
+	imull	%edx,	%ecx
+	movl	%ecx,	%ebx
+	addl	%ebx,	%eax
+	movl	%eax,	-8(%rbp)
 	movl	-4(%rbp),	%eax
 	jmp	.LC1
 	/* label constant 1 */
