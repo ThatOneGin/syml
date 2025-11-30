@@ -89,7 +89,9 @@ cbone_fd cbone_fd_open(char *path);
 void cbone_fd_close(cbone_fd f);
 int cbone_cmd_run_sync(cbone_cmd *cmd);
 int cbone_cmd_run_sync_reset(cbone_cmd *cmd);
-int cbone_modified_after(char *f1, char *f2);
+int cbone_fd_rename(const char *old_name, const char *new_name);
+int cbone_fd_modified_after(char *f1, char *f2);
+void cbone_rebuild_self_(int argc, char **argv, char *source_file);
 cbone_str_array cbone_make_str_array(char *first, ...);
 char *cbone_concat_str_array(char *delim, cbone_str_array s);
 char *cbone_str_concat(char *s1, char *s2);
@@ -388,13 +390,13 @@ int cbone_cmd_run_sync(cbone_cmd *cmd) {
   return cbone_fd_wait(f);
 }
 
-int cbone_cmd_run_sync_free(cbone_cmd *cmd) {
+int cbone_cmd_run_sync_reset(cbone_cmd *cmd) {
   int status = cbone_cmd_run_sync(cmd);
   cmd->data.size = 0;
   return status;
 }
 
-int cbone_modified_after(char *f1, char *f2) {
+int cbone_fd_modified_after(char *f1, char *f2) {
 #ifdef _WIN32
   FILETIME file1_time, file2_time;
   cbone_fd file1 = cbone_fd_open(f1);
@@ -438,15 +440,38 @@ int cbone_modified_after(char *f1, char *f2) {
 #endif
 }
 
-#define REBUILD_SELF(argc, argv)                            \
-  do {                                                      \
-    cbone_assert_with_errmsg(argc >= 1, "no args... how?"); \
-    char *src_file = __FILE__;                              \
-    char *target = argv[0];                                 \
-    if (cbone_modified_after(src_file, target)) {           \
-      CMD(cc, "-o", target, src_file);                      \
-    }                                                       \
-  } while (0)
+int cbone_fd_rename(const char *old_name, const char *new_name) {
+  cbone_log(NULL, "renaming %s to %s.", old_name, new_name);
+  if (rename(old_name, new_name) < 0) {
+    perror("Couldn't rename file");
+    return 0;
+  }
+  return 1;
+}
+
+void cbone_rebuild_self_(int argc, char **argv, char *source_file) {
+  cbone_assert_with_errmsg(argc >= 1, "no args... how?");
+  char *target = argv[0];
+  if (cbone_fd_modified_after(source_file, target)) {
+    /* got this idea from nob.h, ref: https://github.com/tsoding/nob.h */
+#if !defined(CBONE_DISABLE_BACKUP_FILE)
+    cbone_string_builder sb = cbone_sb_new();
+    cbone_sb_sprintf(&sb, "%s.old", target);
+    cbone_fd_rename(target,
+        cbone_sb_cstr(&sb));
+    cbone_sb_free(&sb);
+#endif
+    CMD(cc, "-o", target, source_file);
+    /* rerun the binary */
+    cbone_cmd cmd = {0};
+    cbone_cmd_append(&cmd, target);
+    cbone_cmd_run_sync(&cmd);
+    cbone_cmd_free(&cmd);
+    exit(0);
+  }
+}
+
+#define cbone_rebuild_self(argc, argv) cbone_rebuild_self_(argc, argv, __FILE__)
 
 /*
 Returns if given path as an array of strings is a directory.
@@ -608,6 +633,7 @@ void cbone_log(const char *pref, const char *f, ...) {
 #ifndef CBONE_STRIP_GUARD
 #define CBONE_STRIP_GUARD
   #ifdef CBONE_STRIP_PREFIX
+    #define rebuild_self cbone_rebuild_self
     #define cmd_append cbone_cmd_append
     #define cmd_free cbone_cmd_free
     #define cmd_run_async cbone_cmd_run_async
@@ -617,7 +643,8 @@ void cbone_log(const char *pref, const char *f, ...) {
     #define fd_close cbone_fd_close
     #define cmd_run_sync cbone_cmd_run_sync
     #define cmd_run_sync_reset cbone_cmd_run_sync_reset
-    #define modified_after cbone_modified_after
+    #define fd_rename cbone_fd_rename
+    #define fd_modified_after cbone_fd_modified_after
     #define make_str_array cbone_make_str_array
     #define concat_str_array cbone_concat_str_array
     #define str_concat cbone_str_concat

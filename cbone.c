@@ -69,7 +69,7 @@ static void compile_s_files()
 
 int main(int argc, char **argv)
 {
-  REBUILD_SELF(argc, argv);
+  cbone_rebuild_self(argc, argv);
   if (argc > 1 && strcmp(argv[1], "run-tests") == 0) {
     runtests();
   } else if (argc > 1 && strcmp(argv[1], "run-tests-compile") == 0) {
