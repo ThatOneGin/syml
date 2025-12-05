@@ -72,6 +72,10 @@ let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
       (match (pointed_type lt, pointed_type rt) with
        | (Some ptl, Some ptr) when ptl = ptr -> Int
        | _ -> type_error "pointer subtraction requires pointers to same type")
+    else if op = OEQU || op = ONEQ then
+      (* we need exact types *)
+      (if lt = rt then I8
+       else type_error "Comparison requires both hands of the same type")
     else invalid ()
   | OMUL | ODIV ->
     if is_numeric_type lt && is_numeric_type rt then I32
@@ -112,12 +116,15 @@ let check_call (ts: type_State) (c: vcall): unit =
       (type2str t)
       c.name)
 
-let check_stat (ts: type_State) (s: stat): unit =
+let rec check_stat (ts: type_State) (s: stat): unit =
   match s with
   | Var v -> check_vard ts v; ()
   | Return r -> check_return ts r; ()
   | Asm _ -> ()
   | Voidcall c -> check_call ts c; ()
+  | Block b ->
+    Array.iter (fun (s: stat) -> check_stat ts s) b.body;
+    ()
 
 let check_func (ts: type_State) (f: toplevel): unit =
   match f with

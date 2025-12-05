@@ -28,6 +28,8 @@ type token =
   | TK_minus
   | TK_mul
   | TK_div
+  | TK_equ
+  | TK_neq
   | TK_lparen | TK_rparen
   | TK_lbrace | TK_rbrace
   | TK_equals | TK_colon
@@ -135,13 +137,25 @@ let lex_report_location (ls: lex_State): location =
   let loc: location = location_new ls.name ls.line in
   loc
 
-let lex_read_char(ls: lex_State): token =
+let read_double_op (ls: lex_State): token =
+  match ls.current with
+  | '=' ->
+      lex_advance ls;
+      if ls.current = '=' then begin lex_advance ls; TK_equ end
+      else TK_equals
+  | '!' ->
+      lex_advance ls;
+      if ls.current = '=' then begin lex_advance ls; TK_neq end
+      else syml_errorf "Expected '=' after '!'"
+  | _ -> syml_errorf "Unsupported char <%d>" (int_of_char ls.current)
+
+let lex_read_char (ls: lex_State): token =
   match ls.current with
   | '(' -> lex_advance ls; TK_lparen
   | ')' -> lex_advance ls; TK_rparen
   | '{' -> lex_advance ls; TK_lbrace
   | '}' -> lex_advance ls; TK_rbrace
-  | '=' -> lex_advance ls; TK_equals
+  | '=' | '!' -> read_double_op ls
   | ':' -> lex_advance ls; TK_colon
   | '+' -> lex_advance ls; TK_plus
   | '-' -> lex_advance ls; TK_minus

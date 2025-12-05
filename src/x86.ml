@@ -90,20 +90,39 @@ let emit_call (s: Il.smod) (c: Il.call): unit =
   Array.iteri f c.args
 ;;
 
+let get_cond_suffix (o: Ast.operator): string =
+  match o with
+  | Ast.OEQU -> "e"
+  | Ast.ONEQ -> "ne"
+  | _ -> ""
+
+(* get result of a binary expression *)
+let finish_binop (s: Il.smod) (b: Il.binop): unit =
+  match b.op with
+  | Ast.OEQU | Ast.ONEQ ->
+    Il.smod_emit s (Printf.sprintf "\n\tset%s\t%%al\n" (get_cond_suffix b.op));
+    Il.smod_emit s
+      (Printf.sprintf "\tmovzb%c\t%%al,\t%s"
+        (getmnemonicsuffix (Il.type2bits b.ty))
+        (emit_operand s b.left))
+  | _ -> ()
+
 let emit_binop (s: Il.smod) (b: Il.binop): unit =
   let ins = match b.op with
     | Ast.OADD -> "add"
     | Ast.ODIV -> "idiv"
     | Ast.OMUL -> "imul"
     | Ast.OSUB -> "sub"
-    | _ -> "; " (* unreachable *)
+    | Ast.OEQU | Ast.ONEQ -> "cmp"
+    | _ -> "; "
   in
   Il.smod_emit s
     (Printf.sprintf "%s%c\t%s,\t%s"
       ins
       (getmnemonicsuffix (Il.type2bits b.ty))
       (emit_operand s b.right)
-      (emit_operand s b.left))
+      (emit_operand s b.left));
+  finish_binop s b
 
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   emit_indent s;

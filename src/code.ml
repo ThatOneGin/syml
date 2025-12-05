@@ -117,12 +117,13 @@ let code_call (cs: code_State) (c: vcall): unit =
   ()
 ;;
 
-let code_stat (cs: code_State) (s: stat): unit =
+let rec code_stat (cs: code_State) (s: stat): unit =
   match s with
   | Return r -> code_ret cs r
   | Var v -> code_var cs v
   | Asm s -> cs_code cs (Il.Asm s)
   | Voidcall c -> code_call cs c
+  | Block b -> Array.iter (fun (s: stat): unit -> code_stat cs s) b.body; ()
 
 let code_func (cs: code_State) (f: funct): unit = 
   code_namedlabel cs f.name true; 

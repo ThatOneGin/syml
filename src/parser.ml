@@ -45,6 +45,8 @@ let ps_tk2str (ps: parser_State): string =
   | TK_minus -> "<->"
   | TK_mul -> "<*>"
   | TK_div -> "</>"
+  | TK_equ -> "<==>"
+  | TK_neq -> "<!=>"
   | TK_lparen -> "<(>"
   | TK_rparen -> "<)>"
   | TK_lbrace -> "<{>"
@@ -119,6 +121,8 @@ let getoperator (ps: parser_State): Ast.operator =
   | TK_minus -> Ast.OSUB
   | TK_mul -> Ast.OMUL
   | TK_div -> Ast.ODIV
+  | TK_equ -> Ast.OEQU
+  | TK_neq -> Ast.ONEQ
   | _ -> ps_unexpected ps "binary operator"
 
 let rec parse_primaryexpr (ps: parser_State): Ast.expr =
@@ -158,7 +162,12 @@ and parse_mulexpr (ps: parser_State): Ast.expr =
   !lhs
 and parse_addexpr (ps: parser_State): Ast.expr =
   let lhs: Ast.expr ref = ref (parse_mulexpr ps) in
-  while ps.peek = TK_plus || ps.peek = TK_minus do
+  while
+    ps.peek = TK_plus || (* + *)
+    ps.peek = TK_minus || (* - *)
+    ps.peek = TK_equ || (* == *)
+    ps.peek = TK_neq (* != *)
+  do
     let op: Ast.operator = getoperator ps in
     ps_next ps;
     let rhs: Ast.expr = parse_mulexpr ps in
@@ -239,21 +248,21 @@ let parse_voidcall (ps: parser_State): Ast.stat =
   | _ -> ps_unexpected ps "statement"
 
 (* stat = var | return | asm *)
-let parse_stat (ps: parser_State): Ast.stat =
+let rec parse_stat (ps: parser_State): Ast.stat =
   let stat: Ast.stat = 
     match ps.peek with
     | TK_let -> parse_var ps
     | TK_return -> parse_return ps
     | TK_asm -> parse_asm ps
+    | TK_lbrace -> Ast.Block (parse_block ps)
     | _ -> parse_voidcall ps
   in
   while ps.peek = TK_semicolon do
     ps_next ps;
   done;
   stat
-
 (* block = '{' stat list '}' *)
-let parse_block (ps: parser_State): Ast.block =
+and parse_block (ps: parser_State): Ast.block =
   let blk: Ast.block = {body=[||]} in
   ps_expect_sym ps TK_lbrace "expected '{'";
   ps_enter ps; (* enter level *)

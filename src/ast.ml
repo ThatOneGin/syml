@@ -4,7 +4,7 @@
  *)
 
 type operator =
-  | OADD | OSUB | ODIV | OMUL | OINVALID
+  | OADD | OSUB | ODIV | OMUL | OEQU | ONEQ | OINVALID
 type expr =
   | Number of int
   | String of string
@@ -15,6 +15,7 @@ type stat =
   | Return of expr
   | Asm of string
   | Voidcall of vcall
+  | Block of block
 and toplevel = (* unused *)
   | Func of funct
   | Globvar of vard
