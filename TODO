@@ -3,5 +3,5 @@
   * [X] Use stack pointer to allocate local variables
 
 05/12/2025 XX:XX:
-  * [ ] Track if expression needs the value it produces or not.
-  * [ ] Implement if conditions
+  * [X] Track if expression needs the value it produces or not.
+  * [X] Implement if conditions

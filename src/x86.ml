@@ -90,22 +90,30 @@ let emit_call (s: Il.smod) (c: Il.call): unit =
   Array.iteri f c.args
 ;;
 
-let get_cond_suffix (o: Ast.operator): string =
-  match o with
-  | Ast.OEQU -> "e"
-  | Ast.ONEQ -> "ne"
-  | _ -> ""
+let get_cond_suffix (o: Ast.operator) (swap: bool): string =
+  if swap then
+    match o with
+    | Ast.OEQU -> "ne"
+    | Ast.ONEQ -> "e"
+    | _ -> ""
+  else
+    match o with
+    | Ast.OEQU -> "e"
+    | Ast.ONEQ -> "ne"
+    | _ -> ""
 
 (* get result of a binary expression *)
 let finish_binop (s: Il.smod) (b: Il.binop): unit =
-  match b.op with
-  | Ast.OEQU | Ast.ONEQ ->
-    Il.smod_emit s (Printf.sprintf "\n\tset%s\t%%al\n" (get_cond_suffix b.op));
-    Il.smod_emit s
-      (Printf.sprintf "\tmovzb%c\t%%al,\t%s"
-        (getmnemonicsuffix (Il.type2bits b.ty))
-        (emit_operand s b.left))
-  | _ -> ()
+  if not b.return_val then ()
+  else
+    match b.op with
+    | Ast.OEQU | Ast.ONEQ ->
+      Il.smod_emit s (Printf.sprintf "\n\tset%s\t%%al\n" (get_cond_suffix b.op false));
+      Il.smod_emit s
+        (Printf.sprintf "\tmovzb%c\t%%al,\t%s"
+          (getmnemonicsuffix (Il.type2bits b.ty))
+          (emit_operand s b.left))
+    | _ -> ()
 
 let emit_binop (s: Il.smod) (b: Il.binop): unit =
   let ins = match b.op with
@@ -179,6 +187,12 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     end else
       Il.smod_emit s (Printf.sprintf "call\t%s" c.f)
   | Binop b -> emit_binop s b
+  | Je i -> Il.smod_emit s (Printf.sprintf "je\t.LC%d" i)
+  | Jne i -> Il.smod_emit s (Printf.sprintf "jne\t.LC%d" i)
+  | Test t ->
+    let op = emit_operand s t.op in
+    Il.smod_emit s (Printf.sprintf "cmpq\t$0,\t%s\n" op);
+    Il.smod_emit s (Printf.sprintf "\tje\t.LC%d" t.jit)
   in
   emit_newline s
 

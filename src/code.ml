@@ -42,6 +42,16 @@ let code_unnamedlabel (cs: code_State): unit =
   cs_code cs (Label (Unnamed_label cs.smod.labelcount));
   smod_newlabel cs.smod false; ()
 
+let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand): inst =
+  match e with
+  | Binop (_, op, _) -> begin
+    match op with
+    | OEQU -> Il.Jne i
+    | ONEQ -> Il.Je i
+    | _ -> Il.Test {op = o; jit =i;}
+  end
+  | _ -> Il.Test {op = o; jit =i;}
+
 (* -- tranlations -- *)
 
 let code_primexp (e: expr): value =
@@ -52,7 +62,7 @@ let code_primexp (e: expr): value =
   | _ -> Il.Int 0
 
 (* compile a binary expressino *)
-let rec code_binopexp (cs: code_State) (e: expr): operand =
+let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop (l, o, r) ->
     let lhs_reg = alloc_simple_reg cs.ctxt cs.ty in
@@ -62,35 +72,36 @@ let rec code_binopexp (cs: code_State) (e: expr): operand =
       name = None;
       ty = cs.ty;
       dest = Some lhs_reg;
-      src = code_exp cs l;
+      src = code_exp cs l true;
     });
     (* move the right hand *)
     cs_code cs (Move {
       name = None;
       ty = cs.ty;
       dest = Some rhs_reg;
-      src = code_exp cs r;
+      src = code_exp cs r true;
     });
     let b = Il.Binop {
       left = Reg (Some lhs_reg);
       right = Reg (Some rhs_reg);
       op = o;
       ty = cs.ty;
+      return_val = return_val;
     } in
     cs_code cs b;
     free_reg cs.ctxt rhs_reg; (* free the right register *)
     free_reg cs.ctxt lhs_reg; (* and the left one *)
     Reg (Some lhs_reg) (* but return it *)
   | _ -> unreachable "Codegen" "expected binary expression";
-and code_exp (cs: code_State) (e: expr): operand =
+and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop _ ->
-    code_binopexp cs e
+    code_binopexp cs e return_val
   | _ ->
     Val (code_primexp e)
 
 let code_ret (cs: code_State) (r: expr): unit =
-  let op = (code_exp cs r) in
+  let op = (code_exp cs r true) in
   cs_code cs (Ret {ty = cs.ty;
                   value = op;
                   pc = 0;})
@@ -99,7 +110,7 @@ let code_var (cs: code_State) (v: vard): unit =
   let dest = Ra.alloc_var cs.ctxt v.name v.ty in
   let old_cs_ty = cs.ty in
   cs.ty <- v.ty; (* for code_binopexp *)
-  let op = (code_exp cs v.value) in
+  let op = (code_exp cs v.value true) in
   cs.ty <- old_cs_ty; (* restore helper *)
   cs_code cs (Move {
     name = None;
@@ -123,7 +134,16 @@ let rec code_stat (cs: code_State) (s: stat): unit =
   | Var v -> code_var cs v
   | Asm s -> cs_code cs (Il.Asm s)
   | Voidcall c -> code_call cs c
-  | Block b -> Array.iter (fun (s: stat): unit -> code_stat cs s) b.body; ()
+  | Block b -> Array.iter (fun (s: stat): unit -> code_stat cs s) b.body
+  | Ifstat i -> code_if cs i
+and code_if (cs: code_State) (i: ifstat): unit =
+  let cond: operand = code_exp cs i.cond false in
+  let _if = Array.length cs.code in
+  cs_code cs (Je 0);
+  Array.iter (fun (s: stat): unit -> code_stat cs s) i.blk.body;
+  code_unnamedlabel cs;
+  let curr_label = cs.smod.labelcount - 1 in
+  cs.code.(_if) <- get_jmp_from_expr i.cond curr_label cond
 
 let code_func (cs: code_State) (f: funct): unit = 
   code_namedlabel cs f.name true; 

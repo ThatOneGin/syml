@@ -44,7 +44,9 @@ static void runtests(void)
   } tests[] = {
     {"binop", TESTNAME("binop.syml")},
     {"call", TESTNAME("call.syml")},
-    {"inline", TESTNAME("inline.syml")}
+    {"inline", TESTNAME("inline.syml")},
+    {"cond-value", TESTNAME("cond-value.syml")},
+    {"if-cond", TESTNAME("if-cond.syml")}
   };
   cbone_cmd cmd = {0};
   for (int i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {

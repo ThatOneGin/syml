@@ -34,6 +34,7 @@ let ps_tk2str (ps: parser_State): string =
   | TK_def -> "<def>"
   | TK_return -> "<return>"
   | TK_asm -> "<asm>"
+  | TK_if -> "<if>"
   | TK_nil -> "<nil>"
   | TK_int -> "<int>"
   | TK_str -> "<str>"
@@ -247,7 +248,7 @@ let parse_voidcall (ps: parser_State): Ast.stat =
     }
   | _ -> ps_unexpected ps "statement"
 
-(* stat = var | return | asm *)
+(* stat = var | return | asm | if *)
 let rec parse_stat (ps: parser_State): Ast.stat =
   let stat: Ast.stat = 
     match ps.peek with
@@ -255,6 +256,7 @@ let rec parse_stat (ps: parser_State): Ast.stat =
     | TK_return -> parse_return ps
     | TK_asm -> parse_asm ps
     | TK_lbrace -> Ast.Block (parse_block ps)
+    | TK_if -> parse_ifstat ps
     | _ -> parse_voidcall ps
   in
   while ps.peek = TK_semicolon do
@@ -272,6 +274,16 @@ and parse_block (ps: parser_State): Ast.block =
   ps_leave ps; (* leave level *)
   ps_expect_sym ps TK_rbrace "expected '}'";
   blk
+and parse_ifstat(ps: parser_State): Ast.stat =
+  ps_expect_sym ps TK_if "Expected if";
+  ps_expect_sym ps TK_lparen "Expected '(' to open condition at if statement";
+  let e: Ast.expr = parse_expr ps in
+  ps_expect_sym ps TK_rparen "Expected ')' to close condition at if statement";
+  let b: Ast.block = parse_block ps in
+  Ast.Ifstat {
+    cond = e;
+    blk = b;
+  }
 
 (* func = 'def' '(' ')' '{' stat list '}' *)
 let parse_func (ps: parser_State): Ast.toplevel =

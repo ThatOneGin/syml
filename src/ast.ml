@@ -16,6 +16,7 @@ type stat =
   | Asm of string
   | Voidcall of vcall
   | Block of block
+  | Ifstat of ifstat
 and toplevel = (* unused *)
   | Func of funct
   | Globvar of vard
@@ -35,6 +36,10 @@ and vard = {
 and vcall = {
   name: string; (* for now it's only a string *)
   args: expr array;
+}
+and ifstat = {
+  cond: expr;
+  blk: block;
 }
 
 let block_append (b: block) (s: stat): unit =

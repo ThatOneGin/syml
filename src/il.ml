@@ -57,6 +57,12 @@ type binop = {
     right: operand;
     op: Ast.operator;
     ty: Dtypes.datatype;
+    return_val: bool;
+  }
+
+type test = {
+    op: operand; (* operand to test *)
+    jit: int; (* jump if true *)
   }
 
 type inst =
@@ -68,6 +74,9 @@ type inst =
   | Asm of string
   | Call of call
   | Binop of binop
+  | Je of int
+  | Jne of int
+  | Test of test
 
 type insts = inst array
 
@@ -216,12 +225,17 @@ let print_insts (is: insts): unit =
               | Ast.ODIV -> "div"
               | Ast.OMUL -> "mul"
               | Ast.OSUB -> "sub"
+              | Ast.OEQU -> "equ"
+              | Ast.ONEQ -> "neq"
               | _ -> "invalid"
             in
             Printf.printf "%s %s, %s"
               op
               (op2str b.left)
               (op2str b.right)
+          | Je i -> Printf.printf "je %d" i
+          | Jne i -> Printf.printf "jne %d" i
+          | Test t -> Printf.printf "test %s, LC<%d>" (op2str t.op) t.jit
       end;
       print_newline ()
   in
