@@ -132,6 +132,15 @@ let emit_binop (s: Il.smod) (b: Il.binop): unit =
       (emit_operand s b.left));
   finish_binop s b
 
+let emit_jmp (s: Il.smod) (j: Il.jmp): unit =
+  match j with
+  | Je i -> Il.smod_emit s (Printf.sprintf "je\t.LC%d" i)
+  | Jne i -> Il.smod_emit s (Printf.sprintf "jne\t.LC%d" i)
+  | Test t ->
+    let op = emit_operand s t.op in
+    Il.smod_emit s (Printf.sprintf "cmpq\t$0,\t%s\n" op);
+    Il.smod_emit s (Printf.sprintf "\tje\t.LC%d" t.jit)
+
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   emit_indent s;
   let () =
@@ -187,12 +196,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
     end else
       Il.smod_emit s (Printf.sprintf "call\t%s" c.f)
   | Binop b -> emit_binop s b
-  | Je i -> Il.smod_emit s (Printf.sprintf "je\t.LC%d" i)
-  | Jne i -> Il.smod_emit s (Printf.sprintf "jne\t.LC%d" i)
-  | Test t ->
-    let op = emit_operand s t.op in
-    Il.smod_emit s (Printf.sprintf "cmpq\t$0,\t%s\n" op);
-    Il.smod_emit s (Printf.sprintf "\tje\t.LC%d" t.jit)
+  | Jmp j -> emit_jmp s j
   in
   emit_newline s
 

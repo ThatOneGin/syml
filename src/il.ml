@@ -65,6 +65,11 @@ type test = {
     jit: int; (* jump if true *)
   }
 
+type jmp =
+  | Je of int
+  | Jne of int
+  | Test of test
+
 type inst =
   | Move of move
   | Ret of ret
@@ -74,9 +79,7 @@ type inst =
   | Asm of string
   | Call of call
   | Binop of binop
-  | Je of int
-  | Jne of int
-  | Test of test
+  | Jmp of jmp
 
 type insts = inst array
 
@@ -191,6 +194,12 @@ let label2str (l: label): string =
   | Named_label nl -> nl.name
   | Unnamed_label id -> "LC<" ^ (string_of_int id) ^ ">"
 
+let print_jmp (j: jmp) =
+  match j with
+  | Je i -> Printf.printf "je %d" i
+  | Jne i -> Printf.printf "jne %d" i
+  | Test t -> Printf.printf "test %s, LC<%d>" (op2str t.op) t.jit
+
 let print_insts (is: insts): unit =
   let f =
     fun (i: inst): unit ->
@@ -233,9 +242,7 @@ let print_insts (is: insts): unit =
               op
               (op2str b.left)
               (op2str b.right)
-          | Je i -> Printf.printf "je %d" i
-          | Jne i -> Printf.printf "jne %d" i
-          | Test t -> Printf.printf "test %s, LC<%d>" (op2str t.op) t.jit
+          | Jmp j -> print_jmp j
       end;
       print_newline ()
   in

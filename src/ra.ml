@@ -116,8 +116,11 @@ let alloc_reg_for_inst (ctxt: ctxt) (i: inst): unit =
   | Binop b ->
     check_operand ctxt b.left;
     check_operand ctxt b.right
-  | Test t -> check_operand ctxt t.op
-  | _ -> ()
+  | Jmp j ->
+    begin 
+      match j with
+      | Test t -> check_operand ctxt t.op
+      | _ -> () end
 
 let ctxt_allocregs (ctxt: ctxt) (i: insts): unit =
   Array.iter

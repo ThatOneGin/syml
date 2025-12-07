@@ -46,11 +46,11 @@ let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand): inst =
   match e with
   | Binop (_, op, _) -> begin
     match op with
-    | OEQU -> Il.Jne i
-    | ONEQ -> Il.Je i
-    | _ -> Il.Test {op = o; jit =i;}
+    | OEQU -> Jmp (Jne i)
+    | ONEQ -> Jmp (Je i)
+    | _ -> Jmp (Test {op = o; jit =i;})
   end
-  | _ -> Il.Test {op = o; jit =i;}
+  | _ -> Jmp (Test {op = o; jit =i;})
 
 (* -- tranlations -- *)
 
@@ -139,7 +139,7 @@ let rec code_stat (cs: code_State) (s: stat): unit =
 and code_if (cs: code_State) (i: ifstat): unit =
   let cond: operand = code_exp cs i.cond false in
   let _if = Array.length cs.code in
-  cs_code cs (Je 0);
+  cs_code cs (Jmp (Je 0));
   Array.iter (fun (s: stat): unit -> code_stat cs s) i.blk.body;
   code_unnamedlabel cs;
   let curr_label = cs.smod.labelcount - 1 in
