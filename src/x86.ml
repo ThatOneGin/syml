@@ -80,16 +80,6 @@ let emit_operand (s: Il.smod) (o: Il.operand): string =
   end
   | Val v -> emit_val s v
 
-let emit_call (s: Il.smod) (c: Il.call): unit =
-  let f = fun (i: int) (o: Il.operand): unit ->
-    Il.smod_emit s
-      (Printf.sprintf "movq\t%%%s,\t%%%s"
-        (emit_operand s o)
-        (emit_reg c.regs.(i)))
-  in
-  Array.iteri f c.args
-;;
-
 let get_cond_suffix (o: Ast.operator) (swap: bool): string =
   if swap then
     match o with
@@ -106,13 +96,16 @@ let get_cond_suffix (o: Ast.operator) (swap: bool): string =
 let finish_binop (s: Il.smod) (b: Il.binop): unit =
   if not b.return_val then ()
   else
+    let suffix = getmnemonicsuffix (Il.type2bits b.ty) in
     match b.op with
     | Ast.OEQU | Ast.ONEQ ->
-      Il.smod_emit s (Printf.sprintf "\n\tset%s\t%%al\n" (get_cond_suffix b.op false));
       Il.smod_emit s
-        (Printf.sprintf "\tmovzb%c\t%%al,\t%s"
-          (getmnemonicsuffix (Il.type2bits b.ty))
-          (emit_operand s b.left))
+        (Printf.sprintf "\n\tset%s\t%%al"
+          (get_cond_suffix b.op false));
+      (if suffix != 'b' then
+        Il.smod_emit s
+          (Printf.sprintf "\n\tmovzb%c\t%%al,\t%s"
+            suffix (emit_operand s b.left)))
     | _ -> ()
 
 let emit_binop (s: Il.smod) (b: Il.binop): unit =
@@ -141,25 +134,22 @@ let emit_jmp (s: Il.smod) (j: Il.jmp): unit =
     Il.smod_emit s (Printf.sprintf "cmpq\t$0,\t%s\n" op);
     Il.smod_emit s (Printf.sprintf "\tje\t.LC%d" t.jit)
 
-let emit_inst (s: Il.smod) (i: Il.inst): unit =
-  emit_indent s;
-  let () =
-  match i with
-  | Move m ->
-    let dest: Il.reg =
-      match m.dest with
-      | Some r -> r
-      | _ -> raise
-        (Code_x86_64
-          "No register found in instruction.")
-    in
-    Il.smod_emit s
-      (Printf.sprintf "mov%c\t%s,\t%s"
-        (getmnemonicsuffix (Il.type2bits m.ty))
-        (emit_operand s m.src)
-        (emit_reg dest))
-  | Ret r ->
-    let b: Il.bits = Il.type2bits r.ty in
+let emit_move (s: Il.smod) (m: Il.move): unit =
+  let dest: Il.reg =
+    match m.dest with
+    | Some r -> r
+    | _ -> raise
+      (Code_x86_64
+        "No register found in instruction.")
+  in
+  Il.smod_emit s
+    (Printf.sprintf "mov%c\t%s,\t%s"
+      (getmnemonicsuffix (Il.type2bits m.ty))
+      (emit_operand s m.src)
+      (emit_reg dest))
+
+let emit_ret (s: Il.smod) (r: Il.ret): unit = 
+  let b: Il.bits = Il.type2bits r.ty in
     (* This doesn't handle values with size greater than 64-bits *)
     let op: string = emit_operand s r.value in
     let rr: string = "%" ^ getreg b 0 in
@@ -173,28 +163,40 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
           ("%" ^ getreg b 0))
     end;
     Il.smod_emit s (Printf.sprintf "\tjmp\t.LC%d" r.pc)
-  | Enter ->
-    Il.smod_emit s "pushq\t%rbp\n";
-    Il.smod_emit s "\tmovq\t%rsp, %rbp"
-  | Leave ->
-    Il.smod_emit s "popq\t%rbp\n";
-    Il.smod_emit s "\tret"
-  | Label l -> begin 
-    match l with
+
+let emit_label (s: Il.smod) (l: Il.label): unit =
+  match l with
     | Named_label nl ->
       (if nl.global then Il.smod_emit s (".globl " ^ nl.name ^ "\n"));
       Il.smod_emit s (Printf.sprintf "%s:" nl.name);
-    | Unnamed_label id -> Il.smod_emit s (Printf.sprintf "/* label constant %d */\n.LC%d:" id id)
-  end
-  | Asm str -> Il.smod_emit s
-    (Printf.sprintf
-      "%s\t/* inline */" str)
-  | Call c ->
-    if (Array.length c.args) > 0 then  begin
-      emit_call s c;
-      Il.smod_emit s (Printf.sprintf "\tcall\t%s" c.f)
-    end else
-      Il.smod_emit s (Printf.sprintf "call\t%s" c.f)
+    | Unnamed_label id ->
+      Il.smod_emit s (Printf.sprintf
+        "/* label constant %d */\n.LC%d:" id id)
+
+let emit_call (s: Il.smod) (c: Il.call): unit =
+  if (Array.length c.args) > 0 then begin
+    let f = fun (i: int) (o: Il.operand): unit ->
+      Il.smod_emit s
+      (Printf.sprintf "movq\t%%%s,\t%%%s"
+      (emit_operand s o)
+      (emit_reg c.regs.(i)))
+    in
+    Array.iteri f c.args;
+    Il.smod_emit s (Printf.sprintf "\tcall\t%s" c.f)
+  end else
+    Il.smod_emit s (Printf.sprintf "call\t%s" c.f)
+
+let emit_inst (s: Il.smod) (i: Il.inst): unit =
+  emit_indent s;
+  let () =
+  match i with
+  | Move m -> emit_move s m
+  | Ret r -> emit_ret s r
+  | Enter -> Il.smod_emit s "pushq\t%rbp\n\tmovq\t%rsp, %rbp"
+  | Leave -> Il.smod_emit s "popq\t%rbp\n\tret";
+  | Label l -> emit_label s l
+  | Asm str -> Il.smod_emit s (Printf.sprintf "%s\t/* inline */" str)
+  | Call c -> emit_call s c
   | Binop b -> emit_binop s b
   | Jmp j -> emit_jmp s j
   in
