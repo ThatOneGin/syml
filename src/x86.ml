@@ -133,6 +133,7 @@ let emit_jmp (s: Il.smod) (j: Il.jmp): unit =
     let op = emit_operand s t.op in
     Il.smod_emit s (Printf.sprintf "cmpq\t$0,\t%s\n" op);
     Il.smod_emit s (Printf.sprintf "\tje\t.LC%d" t.jit)
+  | Jump i -> Il.smod_emit s (Printf.sprintf "jmp\t.LC%d" i)
 
 let emit_move (s: Il.smod) (m: Il.move): unit =
   let dest: Il.reg =

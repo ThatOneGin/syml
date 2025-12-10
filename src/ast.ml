@@ -17,6 +17,7 @@ type stat =
   | Voidcall of vcall
   | Block of block
   | Ifstat of ifstat
+  | While of whilestat 
 and toplevel = (* unused *)
   | Func of funct
   | Globvar of vard
@@ -34,13 +35,17 @@ and vard = {
     value: expr;
   }
 and vcall = {
-  name: string; (* for now it's only a string *)
-  args: expr array;
-}
+    name: string; (* for now it's only a string *)
+    args: expr array;
+  }
 and ifstat = {
-  cond: expr;
-  blk: block;
-}
+    cond: expr;
+    blk: block;
+  }
+and whilestat = {
+    cond: expr;
+    blk: block;
+  }
 
 let block_append (b: block) (s: stat): unit =
   b.body <- Array.append b.body [|s|]; ()

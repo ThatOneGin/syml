@@ -42,12 +42,12 @@ let code_unnamedlabel (cs: code_State): unit =
   cs_code cs (Label (Unnamed_label cs.smod.labelcount));
   smod_newlabel cs.smod false; ()
 
-let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand): inst =
+let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand) (invert: bool): inst =
   match e with
   | Binop (_, op, _) -> begin
     match op with
-    | OEQU -> Jmp (Jne i)
-    | ONEQ -> Jmp (Je i)
+    | OEQU -> if invert then Jmp (Jne i) else Jmp (Je i)
+    | ONEQ -> if invert then Jmp (Je i) else Jmp (Jne i)
     | _ -> Jmp (Test {op = o; jit =i;})
   end
   | _ -> Jmp (Test {op = o; jit =i;})
@@ -136,6 +136,7 @@ let rec code_stat (cs: code_State) (s: stat): unit =
   | Voidcall c -> code_call cs c
   | Block b -> Array.iter (fun (s: stat): unit -> code_stat cs s) b.body
   | Ifstat i -> code_if cs i
+  | While i -> code_while cs i
 and code_if (cs: code_State) (i: ifstat): unit =
   let cond: operand = code_exp cs i.cond false in
   let _if = Array.length cs.code in
@@ -143,7 +144,15 @@ and code_if (cs: code_State) (i: ifstat): unit =
   Array.iter (fun (s: stat): unit -> code_stat cs s) i.blk.body;
   code_unnamedlabel cs;
   let curr_label = cs.smod.labelcount - 1 in
-  cs.code.(_if) <- get_jmp_from_expr i.cond curr_label cond
+  cs.code.(_if) <- get_jmp_from_expr i.cond curr_label cond true
+and code_while (cs: code_State) (w: whilestat): unit =
+  cs_code cs (Jmp (Jump (cs.smod.labelcount+1)));
+  let curr_label = cs.smod.labelcount in
+  code_unnamedlabel cs;
+  Array.iter (fun (s: stat): unit -> code_stat cs s) w.blk.body;
+  code_unnamedlabel cs;
+  let cond: operand = code_exp cs w.cond false in
+  cs_code cs (get_jmp_from_expr w.cond curr_label cond false)
 
 let code_func (cs: code_State) (f: funct): unit = 
   code_namedlabel cs f.name true; 

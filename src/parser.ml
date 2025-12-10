@@ -35,6 +35,7 @@ let ps_tk2str (ps: parser_State): string =
   | TK_return -> "<return>"
   | TK_asm -> "<asm>"
   | TK_if -> "<if>"
+  | TK_while -> "<while>"
   | TK_nil -> "<nil>"
   | TK_int -> "<int>"
   | TK_str -> "<str>"
@@ -257,6 +258,7 @@ let rec parse_stat (ps: parser_State): Ast.stat =
     | TK_asm -> parse_asm ps
     | TK_lbrace -> Ast.Block (parse_block ps)
     | TK_if -> parse_ifstat ps
+    | TK_while -> parse_whilestat ps
     | _ -> parse_voidcall ps
   in
   while ps.peek = TK_semicolon do
@@ -281,6 +283,16 @@ and parse_ifstat(ps: parser_State): Ast.stat =
   ps_expect_sym ps TK_rparen "Expected ')' to close condition at if statement";
   let b: Ast.block = parse_block ps in
   Ast.Ifstat {
+    cond = e;
+    blk = b;
+  }
+and parse_whilestat(ps: parser_State): Ast.stat =
+  ps_expect_sym ps TK_while "Expected if";
+  ps_expect_sym ps TK_lparen "Expected '(' to open condition at while statement";
+  let e: Ast.expr = parse_expr ps in
+  ps_expect_sym ps TK_rparen "Expected ')' to close condition at while statement";
+  let b: Ast.block = parse_block ps in
+  Ast.While {
     cond = e;
     blk = b;
   }

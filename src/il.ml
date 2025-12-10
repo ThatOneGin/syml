@@ -66,9 +66,11 @@ type test = {
   }
 
 type jmp =
+  (* conditional jumps  *)
   | Je of int
   | Jne of int
   | Test of test
+  | Jump of int (* inconditional jump *)
 
 type inst =
   | Move of move
@@ -199,6 +201,7 @@ let print_jmp (j: jmp) =
   | Je i -> Printf.printf "je %d" i
   | Jne i -> Printf.printf "jne %d" i
   | Test t -> Printf.printf "test %s, LC<%d>" (op2str t.op) t.jit
+  | Jump i -> Printf.printf "jmp %d" i
 
 let print_insts (is: insts): unit =
   let f =

@@ -123,13 +123,14 @@ let rec check_stat (ts: type_State) (s: stat): unit =
   | Asm _ -> ()
   | Voidcall c -> check_call ts c; ()
   | Ifstat i -> check_if ts i; ()
-  | Block b ->
-    Array.iter (fun (s: stat) -> check_stat ts s) b.body;
-    ()
+  | While w -> check_while ts w; ()
+  | Block b -> Array.iter (fun (s: stat) -> check_stat ts s) b.body; ()
 and check_if (ts: type_State) (i: ifstat): unit =
   let _ = typeof_expr ts i.cond in
-  Array.iter (fun (s: stat) -> check_stat ts s) i.blk.body;
-  ()
+  Array.iter (fun (s: stat) -> check_stat ts s) i.blk.body
+and check_while (ts: type_State) (w: whilestat): unit =
+  let _ = typeof_expr ts w.cond in
+  Array.iter (fun (s: stat) -> check_stat ts s) w.blk.body
 
 let check_func (ts: type_State) (f: toplevel): unit =
   match f with

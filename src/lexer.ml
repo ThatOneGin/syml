@@ -16,6 +16,7 @@ type token =
   | TK_return
   | TK_asm
   | TK_if
+  | TK_while
 (* types *)
   | TK_nil (* nil is also a keyword *)
   | TK_int
@@ -52,13 +53,14 @@ let reserved_table = [
     ("return", TK_return);
     ("asm", TK_asm);
     ("if", TK_if);
+    ("while", TK_while);
     ("nil", TK_nil);
     ("int", TK_int);
     ("str", TK_str);
     ("i8", TK_i8);
     ("i16", TK_i16);
     ("i32", TK_i32);
-    ("i64", TK_i64)
+    ("i64", TK_i64);
   ]
 
 let lex_new (name: string) (source: string) = {
