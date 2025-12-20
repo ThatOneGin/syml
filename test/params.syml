@@ -1,0 +1,9 @@
+def add(x: i32, y: i32): i32 {
+  let z: i32 = x + y;
+  return z;
+}
+
+def main() {
+
+  return 0;
+}

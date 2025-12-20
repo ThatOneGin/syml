@@ -56,6 +56,7 @@ let ps_tk2str (ps: parser_State): string =
   | TK_equals -> "<=>"
   | TK_colon -> "<:>"
   | TK_semicolon -> "<;>"
+  | TK_comma -> "<,>"
   | TK_EOF -> "<EOF>"
 
 let ps_describe_token (ps: parser_State): string =
@@ -297,15 +298,39 @@ and parse_whilestat(ps: parser_State): Ast.stat =
     blk = b;
   }
 
-(* func = 'def' '(' ')' '{' stat list '}' *)
+(* param = TK_identifier ':' type  *)
+let parse_params (ps: parser_State): Ast.param array =
+  let params: Ast.param array ref  = ref [||] in
+  let rec aux (ps: parser_State) (params: Ast.param array ref) =
+    match ps.peek with
+    | TK_identifier s ->
+      let name = s in
+      ps_next ps;
+      ps_expect_sym ps TK_colon "Expected ':'";
+      let param: Ast.param = {
+        name = name;
+        ty = parse_type ps;
+      } in
+      params := Array.append !params [|param|];
+      if ps.peek = TK_comma then begin
+        ps_next ps;
+        aux ps params
+      end else ()
+    | TK_rparen -> ()
+    | _ -> ps_unexpected ps "identifier"
+  in
+  aux ps params;
+  ps_expect_sym ps TK_rparen "enclosing parenthesis in parameter list";
+  !params
+
+(* func = 'def' '(' params ')' '{' stat list '}' *)
 let parse_func (ps: parser_State): Ast.toplevel =
   match ps.peek with
   | TK_def ->
     ps_next ps;
     let name: string = parse_name_as_string ps in
     ps_expect_sym ps TK_lparen "expected '('";
-    (* TODO: function params *)
-    ps_expect_sym ps TK_rparen "expected ')'";
+    let params: Ast.param array = parse_params ps in
     let ty: Dtypes.datatype =
       match ps.peek with
       | TK_colon -> ps_next ps; parse_type ps
@@ -315,6 +340,7 @@ let parse_func (ps: parser_State): Ast.toplevel =
         name = name;
         ty = ty;
         blk = parse_block ps;
+        params = params;
       } in
     Ast.Func fdesc
   | _ -> ps_unexpected ps "'def' token"

@@ -36,16 +36,17 @@ type token =
   | TK_lbrace | TK_rbrace
   | TK_equals | TK_colon
   | TK_semicolon
+  | TK_comma
   | TK_EOF
 
 type lex_State = {
-  name: string;
-  src: string;
-  len: int;
-  mutable current: char;
-  mutable pos: int;
-  mutable line: int;
-}
+    name: string;
+    src: string;
+    len: int;
+    mutable current: char;
+    mutable pos: int;
+    mutable line: int;
+  }
 
 let reserved_table = [
     ("let", TK_let);
@@ -166,6 +167,7 @@ let lex_read_char (ls: lex_State): token =
   | '*' -> lex_advance ls; TK_mul
   | '/' -> lex_advance ls; TK_div
   | ';' -> lex_advance ls; TK_semicolon
+  | ',' -> lex_advance ls; TK_comma
   | _ -> syml_errorf "Unsupported char <%d>" (int_of_char ls.current)
 
 let lex_search (s: string): token =

@@ -10,11 +10,11 @@ open Common
 
 (* state needed to convert AST to IL *)
 type code_State = {
-  mutable ctxt: ctxt;
-  smod: smod;
-  mutable code: insts;
-  mutable ty: Dtypes.datatype;
-}
+    mutable ctxt: ctxt;
+    smod: smod;
+    mutable code: insts;
+    mutable ty: Dtypes.datatype;
+  }
 
 let cs_new (smod: smod): code_State = {
     ctxt = ctxt_new smod;
@@ -154,12 +154,40 @@ and code_while (cs: code_State) (w: whilestat): unit =
   let cond: operand = code_exp cs w.cond false in
   cs_code cs (get_jmp_from_expr w.cond curr_label cond false)
 
+(*
+ * put the function argument into a 
+ * local variable, e.g. edi -> [rbp - 4]
+ *)
+let code_param
+  (cs: code_State)
+  (p: param)
+  (r: reg): unit =
+  let dest = Ra.alloc_var cs.ctxt p.name p.ty in
+  cs_code cs (Move {
+    src = Reg (Some r);
+    dest = Some dest;
+    name = Some p.name;
+    ty = p.ty;
+  })
+
+(* move function arguments to stack variables *)
+let code_func_params (cs: code_State) (f: funct): unit =
+  let regs: int list = get_arch_funcargs_idx cs.smod.arch in
+  (* TODO: use stack when this is true *)
+  if List.length regs < Array.length f.params then
+    (* FIXME: better error message *)
+    Common.syml_errorf "Reached maximum function parameters capacity."
+  else
+    Array.iteri (fun (i: int) (p: param) ->
+      code_param cs p (Rreg ((List.nth regs i), (Il.type2bits p.ty)))) f.params
+
 let code_func (cs: code_State) (f: funct): unit = 
   code_namedlabel cs f.name true; 
   code_unnamedlabel cs;
   code_enter cs;
+  code_func_params cs f;
   Array.iter (fun (s: stat): unit -> code_stat cs s) f.blk.body;
-  code_unnamedlabel cs; (* TODO: patch function return to here *)
+  code_unnamedlabel cs;
   code_leave cs
 
 let cs_toplevel (cs: code_State) (t: toplevel): unit =

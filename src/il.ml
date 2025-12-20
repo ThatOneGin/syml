@@ -3,8 +3,6 @@
  *  Intermediate language
  *)
 
-let noname = ""
-
 type bits = 
   | Bits8
   | Bits16
@@ -98,6 +96,18 @@ let get_arch_nregister (a: Common.target_arch): int =
   match a with
   | Linux_X86_64 -> 14 (* amount of general-purpose registers *)
 
+
+(* same as get_arch_funcargs, but instead,
+ * returns the index which
+ * the registers are. *)
+let get_arch_funcargs_idx (a: Common.target_arch): int list =
+  match a with
+  | Linux_X86_64 ->
+    [4;5; (* rdi  rsi *)
+     3;2; (* rdx, rcx*)
+     6;7] (* r8, r9 *)
+
+(* returns a list containing registers used for function arguments *)
 let get_arch_funcargs (a: Common.target_arch): reg list =
   match a with
   | Linux_X86_64 ->

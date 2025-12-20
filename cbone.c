@@ -46,7 +46,8 @@ static void runtests(void)
     {"call", TESTNAME("call.syml")},
     {"inline", TESTNAME("inline.syml")},
     {"cond-value", TESTNAME("cond-value.syml")},
-    {"if-cond", TESTNAME("if-cond.syml")}
+    {"if-cond", TESTNAME("if-cond.syml")},
+    {"params", TESTNAME("params.syml")}
   };
   cbone_cmd cmd = {0};
   for (int i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {

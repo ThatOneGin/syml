@@ -7,29 +7,39 @@ open Ast
 open Dtypes
 
 type type_State = {
-  variables: (string, datatype) Hashtbl.t;
-  mutable curr: datatype; (* current function return type *)
-}
+    parent: type_State option; (* parent scope *)
+    variables: (string, datatype) Hashtbl.t;
+    mutable curr: datatype; (* current function return type *)
+  }
 
-let ts_new (): type_State = {
-  variables = Hashtbl.create 32;
-  curr = Nil;
-}
+let ts_new (parent: type_State option): type_State = {
+    parent = parent;
+    variables = Hashtbl.create 32;
+    curr = Nil;
+  }
+
+let ts_enter (ts: type_State): type_State = ts_new (Some ts)
 
 let ts_reg_variable (ts: type_State) (name: string) (ty: datatype): unit =
   Hashtbl.replace ts.variables name ty; ()
 
-let ts_query_variable (ts: type_State) (name: string): datatype =
+let rec ts_query_variable (ts: type_State) (name: string): datatype =
   match Hashtbl.find_opt ts.variables name with
   | Some t -> t
-  | None -> type_error (Printf.sprintf "Unknown variable '%s'" name)
+  | None when ts.parent = None -> type_error (Printf.sprintf "Unknown variable '%s'" name)
+  | None ->
+    ts_query_variable
+      (match ts.parent with
+        | Some t -> t
+        | None -> Common.unreachable
+          "type-checking"
+          "no parent type state") name
 
 let is_numeric_type (ty: datatype): bool =
   match ty with
   | I64 | I32 | I16 | I8 | Int -> true
   | _ -> false
 
-(* pointer helper: adjust `Ptr` to match your Dtypes pointer constructor *)
 let is_pointer_type (ty: datatype): bool =
   match ty with
   | Ptr _ -> true
@@ -132,10 +142,21 @@ and check_while (ts: type_State) (w: whilestat): unit =
   let _ = typeof_expr ts w.cond in
   Array.iter (fun (s: stat) -> check_stat ts s) w.blk.body
 
-let check_func (ts: type_State) (f: toplevel): unit =
+let reg_params (ts: type_State) (t: Ast.param array): unit =
+  let f = (fun (p: Ast.param) ->
+    ts_reg_variable ts p.name p.ty;
+  ) in
+  Array.iter f t
+
+let check_func (ts: type_State) (f: funct): unit =
+  ts.curr <- f.ty;
+  reg_params ts f.params;
+  Array.iter (fun (s: stat) -> check_stat ts s) f.blk.body
+
+let check_toplevel (ts: type_State) (f: toplevel): unit =
   match f with
   | Func ft ->
-    ts.curr <- ft.ty;
-    Array.iter (fun (s: stat) -> check_stat ts s) ft.blk.body;
-    ts_reg_variable ts ft.name ft.ty; ()
+    let func_scope = ts_enter ts in
+    check_func func_scope ft;
+    ts_reg_variable ts ft.name ft.ty
   | _ -> ()

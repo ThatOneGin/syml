@@ -24,11 +24,16 @@ and toplevel = (* unused *)
 and block = {
     mutable body: stat array;
   }
+and param = {
+    name: string;
+    ty: Dtypes.datatype;
+  }
 and funct = {
-  name: string;
-  blk: block;
-  ty: Dtypes.datatype;
-}
+    name: string;
+    blk: block;
+    ty: Dtypes.datatype;
+    params: param array;
+  }
 and vard = {
     name: string;
     ty: Dtypes.datatype;
