@@ -14,7 +14,7 @@ type value =
   | Int of int
   | Var of vardesc
 and reg =
-  | Spill of int
+  | Stack of int (* on x86_64 represents rbp *)
   | Rreg of int * bits
 and operand =
   | Reg of reg option
@@ -84,13 +84,13 @@ type inst =
 type insts = inst array
 
 type smod = {
-  modname: string;
-  arch: Common.target_arch;
-  nregs: int;
-  mutable asm_buf: out_channel option;
-  mutable labelcount: int;
-  mutable constants: value array;
-}
+    modname: string;
+    arch: Common.target_arch;
+    nregs: int;
+    mutable asm_buf: out_channel option;
+    mutable labelcount: int;
+    mutable constants: value array;
+  }
 
 let get_arch_nregister (a: Common.target_arch): int =
   match a with
@@ -182,7 +182,7 @@ let bits2size (b: bits): int =
 
 let reg2str (r: reg): string =
   match r with
-  | Spill i -> Printf.sprintf "SP<%d>" i
+  | Stack i -> Printf.sprintf "SP<%d>" i
   | Rreg (i, _) -> Printf.sprintf "R<%d>" i
 
 let opt_reg2str (r: reg option): string =

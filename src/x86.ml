@@ -52,7 +52,7 @@ let emit_newline (s: Il.smod): unit =
 
 let emit_reg (r: Il.reg): string =
   match r with
-  | Spill i -> Printf.sprintf "-%d(%%rbp)" i
+  | Stack i -> Printf.sprintf "%d(%%rbp)" i
   | Rreg (i, b) -> "%" ^ getreg b i
 
 let emit_val (s: Il.smod) (v: Il.value): string =

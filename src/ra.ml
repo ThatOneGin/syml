@@ -6,13 +6,13 @@ open Il
 open Common
 
 type ctxt = {
-  smod: smod;
-  nregs: int; (* number of registers *)
-  mutable sp: int; (* stack pointer *)
-  mutable reg: int; (* first available register *)
-  var_map: (string, reg) Hashtbl.t ;
-  args: reg list; (* function arguments *)
-}
+    smod: smod;
+    nregs: int; (* number of registers *)
+    mutable sp: int; (* stack pointer *)
+    mutable reg: int; (* first available register *)
+    var_map: (string, reg) Hashtbl.t ;
+    args: reg list; (* function arguments *)
+  }
 
 let ctxt_new (smod: smod): ctxt = {
     smod = smod;
@@ -29,18 +29,18 @@ let ctxt_getvar (ctxt: ctxt) (name: string): reg =
   | None -> syml_errorf "Unknown variable '%s'." name
 
 let ctxt_stack_alloc (ctxt: ctxt) (n: int): unit =
-  ctxt.sp <- ctxt.sp + n; ()
+  ctxt.sp <- ctxt.sp - n; ()
 
 let alloc_var (ctxt: ctxt) (name: string) (ty: Dtypes.datatype): reg =
   ctxt_stack_alloc ctxt (bits2size (type2bits ty));
-  let loc = Spill ctxt.sp in
+  let loc = Stack ctxt.sp in
   Hashtbl.replace ctxt.var_map name loc;
   loc
 
 let alloc_simple_reg (ctxt: ctxt) (ty: Dtypes.datatype): reg =
   if ctxt.reg = ctxt.nregs then begin
     ctxt_stack_alloc ctxt (bits2size (type2bits ty));
-    Spill ctxt.sp
+    Stack ctxt.sp
   end else begin
     let r: int = ctxt.reg in
     ctxt.reg <- ctxt.reg + 1;
@@ -79,7 +79,8 @@ let alloc_call (ctxt: ctxt) (c: call): unit =
 
 let free_reg (ctxt: ctxt) (r: reg): unit =
   match r with
-  | Spill _ -> ()
+  (* unreachable *)
+  | Stack _ -> ()
   | Rreg (r, _) ->
     if ctxt.reg - 1 != r then
       syml_errorf "bad register deallocation"
