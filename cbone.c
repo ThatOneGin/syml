@@ -22,17 +22,13 @@ static int hasext(const char *s, char *ext)
   return 0;
 }
 
-static int runtest(cbone_cmd *cmd, const char *test, char *filename)
+static void runtest(cbone_cmd *cmd, const char *test, char *filename)
 {
   cbone_log(NULL, "Running test '%s'.", test);
-  cmd_append(cmd, "dune");
-  cmd_append(cmd, "exec");
-  cmd_append(cmd, "syml");
   cmd_append(cmd, filename);
-  int status = cmd_run_sync(cmd);
+  cmd_run_sync(cmd); /* it will just segfault if program fail */
   cbone_log(NULL, "Test '%s' passed.", test);
-  cmd->data.size = 0;
-  return status;
+  cmd->data.size--; /* erase filename */
 }
 
 static void runtests(void)
@@ -50,6 +46,9 @@ static void runtests(void)
     {"params", TESTNAME("params.syml")}
   };
   cbone_cmd cmd = {0};
+  cmd_append(&cmd, "dune");
+  cmd_append(&cmd, "exec");
+  cmd_append(&cmd, "syml");
   for (int i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
     /* at failure we just segfault */
     runtest(&cmd, tests[i].name, tests[i].path);
@@ -78,6 +77,8 @@ int main(int argc, char **argv)
   } else if (argc > 1 && strcmp(argv[1], "run-tests-compile") == 0) {
     runtests();
     compile_s_files();
+  } else if (argc > 1 && strcmp(argv[1], "compile") == 0) {
+    compile_s_files();
   } else if (argc > 1 && strcmp(argv[1], "clean") == 0) {
     cbone_cmd cmd = {0};
     cmd_append(&cmd, rm);
@@ -85,7 +86,8 @@ int main(int argc, char **argv)
       if (hasext(filename, ".o"))
         cmd_append(&cmd, (char*)filename);
     })
-    cmd_run_async(&cmd);
+    if (cmd.data.size > 1)
+      cmd_run_async(&cmd);
   } else {
     return 1;
   }
