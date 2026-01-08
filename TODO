@@ -1,10 +1,5 @@
 27/09/2025 20:32:
   * [ ] Handle function arguments in frontend
-  * [X] Use stack pointer to allocate local variables
-
-05/12/2025 XX:XX:
-  * [X] Track if expression needs the value it produces or not.
-  * [X] Implement if conditions
 
 20/12/2025 XX:XX:
   * [ ] use stack if all registers are ocuppied
