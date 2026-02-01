@@ -9,26 +9,26 @@ type bits =
   | Bits32
   | Bits64
 
-type value =
-  | Str of string
-  | Int of int
-  | Var of vardesc
-and reg =
-  | Stack of int (* on x86_64 represents rbp *)
-  | Rreg of int * bits
-and operand =
-  | Reg of reg option
-  | Val of value
-and vardesc = {
-    name: string;
-    mutable reg: reg option;
-  }
+type reg = int
+type stack = int
+type imm = int64
+
+type mem =
+  | Addr of int (* constant *)
+  | Reg of reg
+  | Stack of stack
+
+type typed_imm = (imm * bits)
+type typed_mem = (mem * bits)
+
+(* operand = mem | immediate *)
+type operand =
+  | Mem of typed_mem
+  | Imm of typed_imm
 
 type move = {
-    ty: Dtypes.datatype;
-    mutable dest: reg option;
-    mutable src: operand;
-    name: string option; (* additional data to use in ra.ml *)
+    dest: mem;
+    src: operand;
   }
 
 type label =
@@ -40,7 +40,7 @@ type label =
 
 type ret = {
     ty: Dtypes.datatype;
-    mutable value: operand;
+    value: operand;
     mutable pc: int;
   }
 
@@ -89,34 +89,19 @@ type smod = {
     nregs: int;
     mutable asm_buf: out_channel option;
     mutable labelcount: int;
-    mutable constants: value array;
+    mutable constants: string array;
   }
 
 let get_arch_nregister (a: Common.target_arch): int =
   match a with
   | Linux_X86_64 -> 14 (* amount of general-purpose registers *)
 
-
-(* same as get_arch_funcargs, but instead,
- * returns the index which
- * the registers are. *)
-let get_arch_funcargs_idx (a: Common.target_arch): int list =
+let get_arch_funcargs (a: Common.target_arch): int list =
   match a with
   | Linux_X86_64 ->
     [4;5; (* rdi  rsi *)
-     3;2; (* rdx, rcx*)
-     6;7] (* r8, r9 *)
-
-(* returns a list containing registers used for function arguments *)
-let get_arch_funcargs (a: Common.target_arch): reg list =
-  match a with
-  | Linux_X86_64 ->
-    [Rreg (4, Bits64); (* rdi *)
-     Rreg (5, Bits64); (* rsi *)
-     Rreg (3, Bits64); (* rdx *)
-     Rreg (2, Bits64); (* rcx *)
-     Rreg (6, Bits64); (* r8 *)
-     Rreg (7, Bits64)] (* r9 *)
+     3;2; (* rdx, rcx *)
+     6;7] (* r8, r9   *)
 
 let smod_create (name: string) (arch: Common.target_arch): smod =
    {modname = name;
@@ -151,7 +136,7 @@ let smod_emit (s: smod) (b: string): unit =
   Printf.fprintf buf "%s" b; ()
 
 (* push a value to the constants table *)
-let smod_push_const (s: smod) (k: value): int =
+let smod_push_const (s: smod) (k: string): int =
   let len = Array.length s.constants in
   let rec aux (i: int) =
     if i >= len then None
@@ -178,28 +163,25 @@ let bits2size (b: bits): int =
   | Bits32 -> 4
   | Bits64 -> 8
 
+let get_operand_type (o: operand): bits =
+  match o with
+  | Mem (_, b)
+  | Imm (_, b) -> b
+
 (* IL printer for visualization *)
 
-let reg2str (r: reg): string =
-  match r with
-  | Stack i -> Printf.sprintf "SP<%d>" i
-  | Rreg (i, _) -> Printf.sprintf "R<%d>" i
+let reg2str (r: reg): string = Printf.sprintf "R<%d>" r
 
-let opt_reg2str (r: reg option): string =
-  match r with
-  | Some rr -> reg2str rr
-  | None -> "R<nil>"
-
-let val2str (v: value): string =
-  match v with
-  | Str s -> "\"" ^ s ^ "\""
-  | Int i -> string_of_int i
-  | Var v -> v.name
+let mem2str (m: mem): string =
+  match m with
+  | Addr a -> Printf.sprintf "LK[%d]" a
+  | Reg r -> reg2str r
+  | Stack s -> Printf.sprintf "sp[%d]" s
 
 let op2str (o: operand): string =
   match o with
-  | Reg r -> opt_reg2str r
-  | Val v -> val2str v
+  | Imm (i, _) -> Printf.sprintf "%Ld" i
+  | Mem (m, _) -> mem2str m
 
 let label2str (l: label): string =
   match l with
@@ -219,18 +201,10 @@ let print_insts (is: insts): unit =
       print_char '\t';
       begin
         match i with
-          | Move m -> begin
-            match m.name with
-            | Some name ->
-              Printf.printf "%s <- %s ; %s"
-                name
-                (op2str m.src)
-                (opt_reg2str m.dest)
-            | None ->
-              Printf.printf "%s <- %s"
-                (opt_reg2str m.dest)
-                (op2str m.src)
-            end
+          | Move m ->
+            Printf.printf "%s <- %s"
+              (mem2str m.dest)
+              (op2str m.src)
           | Ret r ->
             Printf.printf "ret %s"
               (op2str r.value)

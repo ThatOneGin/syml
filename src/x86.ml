@@ -27,7 +27,7 @@ let reg_table = [
 
 exception Code_x86_64 of string
 
-let getreg (b: Il.bits) (r: int): string =
+let getreg (b: Il.bits) (r: Il.reg): string =
   let i = match b with
     | Bits8 -> 0
     | Bits16 -> 1
@@ -50,35 +50,19 @@ let emit_indent (s: Il.smod): unit =
 let emit_newline (s: Il.smod): unit =
   Il.smod_emit s "\n"
 
-let emit_reg (r: Il.reg): string =
-  match r with
-  | Stack i -> Printf.sprintf "%d(%%rbp)" i
-  | Rreg (i, b) -> "%" ^ getreg b i
+let emit_imm (i: Il.imm): string =
+  Printf.sprintf "$%Ld" i
 
-let emit_val (s: Il.smod) (v: Il.value): string =
-  match v with
-  | Int i -> "$" ^ string_of_int i
-  | Str _ ->
-    let i: int = Il.smod_push_const s v in
-    Printf.sprintf "$.LK%d" i
-  | Var v -> begin
-    match v.reg with
-    | Some r -> emit_reg r
-    | None -> Common.unreachable
-      "x86_64 codegen"
-      "missing register in variable descriptor"
-  end
+let emit_mem (m: Il.mem) (ty: Il.bits): string =
+  match m with
+  | Addr a -> Printf.sprintf "$.LK%d" a
+  | Reg r -> "%" ^ getreg ty r
+  | Stack s -> Printf.sprintf "%d(%%rbp)" s
 
-let emit_operand (s: Il.smod) (o: Il.operand): string =
+let emit_operand (o: Il.operand): string =
   match o with
-  | Reg ro -> begin
-    match ro with
-      | Some r -> emit_reg r
-      | None -> raise
-        (Code_x86_64
-          "No register in instruction operand.")
-  end
-  | Val v -> emit_val s v
+  | Mem (m, t) -> emit_mem m t
+  | Imm (i, _) -> emit_imm i
 
 let get_cond_suffix (o: Ast.operator) (swap: bool): string =
   if swap then
@@ -105,7 +89,7 @@ let finish_binop (s: Il.smod) (b: Il.binop): unit =
       (if suffix != 'b' then
         Il.smod_emit s
           (Printf.sprintf "\n\tmovzb%c\t%%al,\t%s"
-            suffix (emit_operand s b.left)))
+            suffix (emit_operand b.left)))
     | _ -> ()
 
 let emit_binop (s: Il.smod) (b: Il.binop): unit =
@@ -121,8 +105,8 @@ let emit_binop (s: Il.smod) (b: Il.binop): unit =
     (Printf.sprintf "%s%c\t%s,\t%s"
       ins
       (getmnemonicsuffix (Il.type2bits b.ty))
-      (emit_operand s b.right)
-      (emit_operand s b.left));
+      (emit_operand b.right)
+      (emit_operand b.left));
   finish_binop s b
 
 let emit_jmp (s: Il.smod) (j: Il.jmp): unit =
@@ -130,29 +114,23 @@ let emit_jmp (s: Il.smod) (j: Il.jmp): unit =
   | Je i -> Il.smod_emit s (Printf.sprintf "je\t.LC%d" i)
   | Jne i -> Il.smod_emit s (Printf.sprintf "jne\t.LC%d" i)
   | Test t ->
-    let op = emit_operand s t.op in
+    let op = emit_operand t.op in
     Il.smod_emit s (Printf.sprintf "cmpq\t$0,\t%s\n" op);
     Il.smod_emit s (Printf.sprintf "\tje\t.LC%d" t.jit)
   | Jump i -> Il.smod_emit s (Printf.sprintf "jmp\t.LC%d" i)
 
 let emit_move (s: Il.smod) (m: Il.move): unit =
-  let dest: Il.reg =
-    match m.dest with
-    | Some r -> r
-    | _ -> raise
-      (Code_x86_64
-        "No register found in instruction.")
-  in
+  let bits = Il.get_operand_type m.src in
   Il.smod_emit s
     (Printf.sprintf "mov%c\t%s,\t%s"
-      (getmnemonicsuffix (Il.type2bits m.ty))
-      (emit_operand s m.src)
-      (emit_reg dest))
+      (getmnemonicsuffix bits)
+      (emit_operand m.src)
+      (emit_mem m.dest bits))
 
 let emit_ret (s: Il.smod) (r: Il.ret): unit = 
   let b: Il.bits = Il.type2bits r.ty in
     (* This doesn't handle values with size greater than 64-bits *)
-    let op: string = emit_operand s r.value in
+    let op: string = emit_operand r.value in
     let rr: string = "%" ^ getreg b 0 in
     if String.equal op rr then
       Il.smod_emit s "nop\n"
@@ -160,7 +138,7 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
       Il.smod_emit s
         (Printf.sprintf "mov%c\t%s,\t%s\n"
           (getmnemonicsuffix b)
-          (emit_operand s r.value)
+          (emit_operand r.value)
           ("%" ^ getreg b 0))
     end;
     Il.smod_emit s (Printf.sprintf "\tjmp\t.LC%d" r.pc)
@@ -178,9 +156,9 @@ let emit_call (s: Il.smod) (c: Il.call): unit =
   if (Array.length c.args) > 0 then begin
     let f = fun (i: int) (o: Il.operand): unit ->
       Il.smod_emit s
-      (Printf.sprintf "movq\t%%%s,\t%%%s"
-      (emit_operand s o)
-      (emit_reg c.regs.(i)))
+        (Printf.sprintf "movq\t%%%s,\t%%%s"
+          (emit_operand o)
+          (getreg Il.Bits64 c.regs.(i)))
     in
     Array.iteri f c.args;
     Il.smod_emit s (Printf.sprintf "\tcall\t%s" c.f)
@@ -214,13 +192,9 @@ let emit_constants (s: Il.smod): unit =
   let rec aux (i: int): unit =
     if i >= len then ()
     else
-      match Array.get s.constants i with
-      | Str str -> Il.smod_emit s
+      let str = Array.get s.constants i in
+      Il.smod_emit s
         (Printf.sprintf ".LK%d:\n\t.asciz \"%s\"\n" i str);
         aux (i + 1)
-      | Int d -> Il.smod_emit s
-        (Printf.sprintf ".LK%d:\n\t.long %d\n" i d);
-        aux (i + 1)
-      | _ -> ()
   in
   aux 0

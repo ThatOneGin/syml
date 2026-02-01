@@ -14,6 +14,7 @@ type code_State = {
     smod: smod;
     mutable code: insts;
     mutable ty: Dtypes.datatype;
+    vars: (string, typed_mem) Hashtbl.t;
   }
 
 let cs_new (smod: smod): code_State = {
@@ -21,11 +22,20 @@ let cs_new (smod: smod): code_State = {
     smod = smod;
     code = [||];
     ty = Dtypes.Nil;
+    vars = Hashtbl.create 32;
   }
 
 (* emit instruction to cs.code *)
 let cs_code (cs: code_State) (i: inst): unit =
   cs.code <- Array.append cs.code [|i|]; ()
+
+let cs_get_var (cs: code_State) (name: string): typed_mem =
+  match Hashtbl.find_opt cs.vars name with
+  | Some v -> v
+  | _ -> syml_errorf "Unknown variable %s" name
+
+let cs_reg_var (cs: code_State) (name: string) (loc: typed_mem): unit =
+  Hashtbl.replace cs.vars name loc
 
 let code_enter (cs: code_State): unit = cs_code cs Enter; ()
 let code_leave (cs: code_State): unit = cs_code cs Leave; ()
@@ -42,6 +52,11 @@ let code_unnamedlabel (cs: code_State): unit =
   cs_code cs (Label (Unnamed_label cs.smod.labelcount));
   smod_newlabel cs.smod false; ()
 
+(* Reserve label id but not emit a 'label' instruction on the buffer *)
+let reserve_unnamed_label (cs: code_State): int =
+  let id = cs.smod.labelcount in
+  smod_newlabel cs.smod false; id
+
 let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand) (invert: bool): inst =
   match e with
   | Binop (_, op, _) -> begin
@@ -52,38 +67,35 @@ let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand) (invert: bool): inst =
   end
   | _ -> Jmp (Test {op = o; jit =i;})
 
-(* -- tranlations -- *)
+(* -- translations -- *)
 
-let code_primexp (e: expr): value =
+let code_primexp (cs: code_State) (e: expr): operand =
   match e with
-  | Number i -> Il.Int i
-  | String s -> Il.Str s
-  | Ident s  -> Il.Var {name = s; reg = None;}
-  | _ -> Il.Int 0
+  | Number i -> Il.Imm (Int64.of_int i, Bits32)
+  | String s -> Il.Mem (Il.Addr (smod_push_const cs.smod s), Bits64)
+  | Ident s -> Il.Mem (cs_get_var cs s)
+  | _ -> Il.Imm (0L, Bits8)
 
 (* compile a binary expressino *)
 let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop (l, o, r) ->
+    let ty_bits = type2bits cs.ty in
     let lhs_reg = alloc_simple_reg cs.ctxt cs.ty in
     let rhs_reg = alloc_simple_reg cs.ctxt cs.ty in
     (* move the left hand *)
     cs_code cs (Move {
-      name = None;
-      ty = cs.ty;
-      dest = Some lhs_reg;
+      dest = lhs_reg;
       src = code_exp cs l true;
     });
     (* move the right hand *)
     cs_code cs (Move {
-      name = None;
-      ty = cs.ty;
-      dest = Some rhs_reg;
+      dest = rhs_reg;
       src = code_exp cs r true;
     });
     let b = Il.Binop {
-      left = Reg (Some lhs_reg);
-      right = Reg (Some rhs_reg);
+      left = Il.Mem (lhs_reg, ty_bits);
+      right = Il.Mem (rhs_reg, ty_bits);
       op = o;
       ty = cs.ty;
       return_val = return_val;
@@ -91,14 +103,12 @@ let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
     cs_code cs b;
     free_reg cs.ctxt rhs_reg; (* free the right register *)
     free_reg cs.ctxt lhs_reg; (* and the left one *)
-    Reg (Some lhs_reg) (* but return it *)
+    Il.Mem (lhs_reg, ty_bits) (* but return it *)
   | _ -> unreachable "Codegen" "expected binary expression";
 and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
-  | Binop _ ->
-    code_binopexp cs e return_val
-  | _ ->
-    Val (code_primexp e)
+  | Binop _ -> code_binopexp cs e return_val
+  | _ -> code_primexp cs e
 
 let code_ret (cs: code_State) (r: expr): unit =
   let op = (code_exp cs r true) in
@@ -107,15 +117,14 @@ let code_ret (cs: code_State) (r: expr): unit =
                   pc = 0;})
 
 let code_var (cs: code_State) (v: vard): unit =
-  let dest = Ra.alloc_var cs.ctxt v.name v.ty in
+  let dest = Ra.ctxt_stack_var cs.ctxt v.ty in
   let old_cs_ty = cs.ty in
   cs.ty <- v.ty; (* for code_binopexp *)
-  let op = (code_exp cs v.value true) in
+  let op = code_exp cs v.value true in
   cs.ty <- old_cs_ty; (* restore helper *)
+  cs_reg_var cs v.name (dest, type2bits v.ty);
   cs_code cs (Move {
-    name = None;
-    ty = v.ty;
-    dest = Some dest;
+    dest = dest;
     src = op;
   })
 
@@ -139,20 +148,20 @@ let rec code_stat (cs: code_State) (s: stat): unit =
   | While i -> code_while cs i
 and code_if (cs: code_State) (i: ifstat): unit =
   let cond: operand = code_exp cs i.cond false in
-  let _if = Array.length cs.code in
-  cs_code cs (Jmp (Je 0));
+  let end_label = reserve_unnamed_label cs in
+  cs_code cs (get_jmp_from_expr i.cond end_label cond true);
   Array.iter (fun (s: stat): unit -> code_stat cs s) i.blk.body;
-  code_unnamedlabel cs;
-  let curr_label = cs.smod.labelcount - 1 in
-  cs.code.(_if) <- get_jmp_from_expr i.cond curr_label cond true
+  (* now emit the label we've reserved *)
+  cs_code cs (Label (Unnamed_label end_label))
 and code_while (cs: code_State) (w: whilestat): unit =
-  cs_code cs (Jmp (Jump (cs.smod.labelcount+1)));
-  let curr_label = cs.smod.labelcount in
-  code_unnamedlabel cs;
+  let start_label = reserve_unnamed_label cs in
+  let cond_label = reserve_unnamed_label cs in
+  cs_code cs (Jmp (Jump cond_label));
+  cs_code cs (Label (Unnamed_label start_label));
   Array.iter (fun (s: stat): unit -> code_stat cs s) w.blk.body;
-  code_unnamedlabel cs;
+  cs_code cs (Label (Unnamed_label cond_label));
   let cond: operand = code_exp cs w.cond false in
-  cs_code cs (get_jmp_from_expr w.cond curr_label cond false)
+  cs_code cs (get_jmp_from_expr w.cond start_label cond false)
 
 (*
  * put the function argument into a 
@@ -162,24 +171,24 @@ let code_param
   (cs: code_State)
   (p: param)
   (r: reg): unit =
-  let dest = Ra.alloc_var cs.ctxt p.name p.ty in
+  let dest = Ra.ctxt_stack_var cs.ctxt p.ty in
+  let ty_bits = type2bits p.ty in
+  cs_reg_var cs p.name @@ (dest, ty_bits);
   cs_code cs (Move {
-    src = Reg (Some r);
-    dest = Some dest;
-    name = Some p.name;
-    ty = p.ty;
+    src = Mem (Reg r, ty_bits);
+    dest = dest;
   })
 
 (* move function arguments to stack variables *)
 let code_func_params (cs: code_State) (f: funct): unit =
-  let regs: int list = get_arch_funcargs_idx cs.smod.arch in
+  let regs: int list = get_arch_funcargs cs.smod.arch in
   (* TODO: use stack when this is true *)
   if List.length regs < Array.length f.params then
     (* FIXME: better error message *)
     Common.syml_errorf "Reached maximum function parameters capacity."
   else
     Array.iteri (fun (i: int) (p: param) ->
-      code_param cs p (Rreg ((List.nth regs i), (Il.type2bits p.ty)))) f.params
+      code_param cs p (List.nth regs i)) f.params
 
 let code_func (cs: code_State) (f: funct): unit = 
   code_namedlabel cs f.name true; 
