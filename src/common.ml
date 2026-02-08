@@ -37,3 +37,25 @@ let unreachable (where: string) (what: string) =
 
 let todo (what: string) =
   syml_errorf "TODO: %s is not implemented." what
+
+let drop _: unit = ()
+
+(* just an array of integers to use in ra.ml *)
+type ints = {
+    data: int array;
+    size: int;
+  }
+
+let ints_new (s: int) (v: int): ints =
+  {data = Array.init s (fun _ -> v);
+   size = s;}
+
+let ints_set (is: ints) (i: int) (v: int): unit =
+  assert (is.size > i);
+  assert (i >= 0);
+  is.data.(i) <- v
+
+let ints_get (is: ints) (i: int): int =
+  assert (is.size > i);
+  assert (i >= 0);
+  is.data.(i)

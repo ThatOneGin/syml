@@ -81,8 +81,8 @@ let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop (l, o, r) ->
     let ty_bits = type2bits cs.ty in
-    let lhs_reg = alloc_simple_reg cs.ctxt cs.ty in
-    let rhs_reg = alloc_simple_reg cs.ctxt cs.ty in
+    let lhs_reg = ctxt_alloc_vreg cs.ctxt in
+    let rhs_reg = ctxt_alloc_vreg cs.ctxt in
     (* move the left hand *)
     cs_code cs (Move {
       dest = lhs_reg;
@@ -101,9 +101,7 @@ let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
       return_val = return_val;
     } in
     cs_code cs b;
-    free_reg cs.ctxt rhs_reg; (* free the right register *)
-    free_reg cs.ctxt lhs_reg; (* and the left one *)
-    Il.Mem (lhs_reg, ty_bits) (* but return it *)
+    Il.Mem (lhs_reg, ty_bits)
   | _ -> unreachable "Codegen" "expected binary expression";
 and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
@@ -117,7 +115,7 @@ let code_ret (cs: code_State) (r: expr): unit =
                   pc = 0;})
 
 let code_var (cs: code_State) (v: vard): unit =
-  let dest = Ra.ctxt_stack_var cs.ctxt v.ty in
+  let dest = Ra.ctxt_alloc_vreg cs.ctxt in
   let old_cs_ty = cs.ty in
   cs.ty <- v.ty; (* for code_binopexp *)
   let op = code_exp cs v.value true in
@@ -171,7 +169,7 @@ let code_param
   (cs: code_State)
   (p: param)
   (r: reg): unit =
-  let dest = Ra.ctxt_stack_var cs.ctxt p.ty in
+  let dest = Ra.ctxt_alloc_vreg cs.ctxt in
   let ty_bits = type2bits p.ty in
   cs_reg_var cs p.name @@ (dest, ty_bits);
   cs_code cs (Move {
@@ -181,7 +179,7 @@ let code_param
 
 (* move function arguments to stack variables *)
 let code_func_params (cs: code_State) (f: funct): unit =
-  let regs: int list = get_arch_funcargs cs.smod.arch in
+  let regs: reg list = get_arch_funcargs cs.smod.arch in
   (* TODO: use stack when this is true *)
   if List.length regs < Array.length f.params then
     (* FIXME: better error message *)
@@ -219,8 +217,7 @@ let patch_ret (cs: code_State): unit =
 
 let cs_finish (cs: code_State): insts =
   patch_ret cs;
-  ctxt_allocregs cs.ctxt cs.code;
-  let tmp: insts = cs.code in
+  let tmp: insts = regalloc cs.ctxt cs.code in
   cs.code <- [||];
   cs.ty <- Dtypes.Nil;
   cs.ctxt <- ctxt_new cs.smod;

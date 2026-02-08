@@ -9,9 +9,14 @@ type bits =
   | Bits32
   | Bits64
 
-type reg = int
+type vreg = int
+type mreg = int
 type stack = int
 type imm = int64
+
+type reg =
+  | Vreg of vreg
+  | Mreg of mreg
 
 type mem =
   | Addr of int (* constant *)
@@ -80,6 +85,7 @@ type inst =
   | Call of call
   | Binop of binop
   | Jmp of jmp
+  | Nop
 
 type insts = inst array
 
@@ -96,12 +102,12 @@ let get_arch_nregister (a: Common.target_arch): int =
   match a with
   | Linux_X86_64 -> 14 (* amount of general-purpose registers *)
 
-let get_arch_funcargs (a: Common.target_arch): int list =
+let get_arch_funcargs (a: Common.target_arch): reg list =
   match a with
   | Linux_X86_64 ->
-    [4;5; (* rdi  rsi *)
-     3;2; (* rdx, rcx *)
-     6;7] (* r8, r9   *)
+    [Mreg 4; Mreg 5; (* rdi  rsi *)
+     Mreg 3; Mreg 2; (* rdx, rcx *)
+     Mreg 6; Mreg 7] (* r8, r9   *)
 
 let smod_create (name: string) (arch: Common.target_arch): smod =
    {modname = name;
@@ -170,13 +176,16 @@ let get_operand_type (o: operand): bits =
 
 (* IL printer for visualization *)
 
-let reg2str (r: reg): string = Printf.sprintf "R<%d>" r
+let reg2str (r: reg): string =
+  match r with 
+  | Vreg v -> Printf.sprintf "%%%d" v
+  | Mreg m -> Printf.sprintf "R%d" m
 
 let mem2str (m: mem): string =
   match m with
   | Addr a -> Printf.sprintf "LK[%d]" a
   | Reg r -> reg2str r
-  | Stack s -> Printf.sprintf "sp[%d]" s
+  | Stack s -> Printf.sprintf "[sp - %d]" s
 
 let op2str (o: operand): string =
   match o with
@@ -230,8 +239,57 @@ let print_insts (is: insts): unit =
               (op2str b.left)
               (op2str b.right)
           | Jmp j -> print_jmp j
+          | Nop -> print_endline "nop"
       end;
       print_newline ()
   in
   Array.iter f is;
   ()
+
+(*
+ * Traverse an inst array with pre defined routines
+ * also used to modify certain instructions
+ **)
+type inst_visitor = {
+    visit_reg: (inst_visitor -> reg -> reg);
+    visit_mem: (inst_visitor -> mem -> mem);
+    visit_opr: (inst_visitor -> operand -> operand);
+  }
+
+(*
+ * standard visitor:
+ *  contains the base functions to traverse the IL instructions
+ *  they really don't do much unless you modify them
+ *)
+let standard_visitor =
+  let visit_reg _ r = r in
+  let visit_mem iv m =
+    match m with
+    | Reg r -> Reg (iv.visit_reg iv r)
+    | _ -> m
+  in
+  let visit_opr iv o = match o with
+    | Mem (m, t) -> Mem (iv.visit_mem iv m, t)
+    | _ -> o
+  in
+  {visit_reg = visit_reg;
+   visit_mem = visit_mem;
+   visit_opr = visit_opr}
+;;
+
+let visit_inst (iv: inst_visitor) (i: inst): inst =
+  match i with
+  | Move m -> Move {dest = iv.visit_mem iv m.dest;
+                    src = iv.visit_opr iv m.src}
+  | Ret r -> Ret {r with
+                  value = iv.visit_opr iv r.value;}
+  | Enter -> Enter
+  | Leave -> Leave
+  | Label l -> Label l
+  | Asm s -> Asm s
+  | Call c -> Call c
+  | Binop b -> Binop {b with
+                      left = iv.visit_opr iv b.left;
+                      right = iv.visit_opr iv b.right;}
+  | Jmp j -> Jmp j
+  | Nop -> Nop

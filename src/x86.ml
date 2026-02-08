@@ -34,7 +34,9 @@ let getreg (b: Il.bits) (r: Il.reg): string =
     | Bits32 -> 2
     | Bits64 -> 3
   in
-  (List.nth (List.nth reg_table r) i)
+  match r with
+  | Mreg m -> (List.nth (List.nth reg_table m) i)
+  | _ -> Common.unreachable "x86_64 assembly generation" "Invalid IL register"
 
 (* to get instruction mnemonic suffix (if any) *)
 let getmnemonicsuffix (b: Il.bits): char =
@@ -131,7 +133,7 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
   let b: Il.bits = Il.type2bits r.ty in
     (* This doesn't handle values with size greater than 64-bits *)
     let op: string = emit_operand r.value in
-    let rr: string = "%" ^ getreg b 0 in
+    let rr: string = "%" ^ getreg b (Mreg 0) in
     if String.equal op rr then
       Il.smod_emit s "nop\n"
     else begin 
@@ -139,7 +141,7 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
         (Printf.sprintf "mov%c\t%s,\t%s\n"
           (getmnemonicsuffix b)
           (emit_operand r.value)
-          ("%" ^ getreg b 0))
+          ("%" ^ getreg b (Mreg 0)))
     end;
     Il.smod_emit s (Printf.sprintf "\tjmp\t.LC%d" r.pc)
 
@@ -178,6 +180,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Call c -> emit_call s c
   | Binop b -> emit_binop s b
   | Jmp j -> emit_jmp s j
+  | Nop -> Il.smod_emit s "/* nop */"
   in
   emit_newline s
 
@@ -185,8 +188,7 @@ let emit_insts (s: Il.smod) (is: Il.insts): unit =
   let iterator = fun (i: Il.inst): unit ->
     emit_inst s i;
   in
-  Array.iter iterator is;
-  ()
+  Array.iter iterator is
 let emit_constants (s: Il.smod): unit =
   let len: int = Array.length s.constants in
   let rec aux (i: int): unit =
