@@ -144,7 +144,7 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
   let expire_interval (i: vreg) =
     Hashtbl.iter
     (fun j _ ->
-      if live_end.(j) >= live_start.(i) hen ()
+      if live_end.(j) >= live_start.(i) then ()
       else
         let mreg = Hashtbl.find vreg_to_mreg j in
         inactivate_mreg mreg) vreg_to_mreg
