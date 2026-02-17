@@ -185,7 +185,7 @@ let mem2str (m: mem): string =
   match m with
   | Addr a -> Printf.sprintf "LK[%d]" a
   | Reg r -> reg2str r
-  | Stack s -> Printf.sprintf "[sp - %d]" s
+  | Stack s -> Printf.sprintf "[sp:%d]" s
 
 let op2str (o: operand): string =
   match o with

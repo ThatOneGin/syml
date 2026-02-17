@@ -57,6 +57,13 @@ let ctxt_alloc_vreg (ctxt: ctxt): mem =
   Reg (Vreg r)
 ;;
 
+(* named variables stay preferably at the stack *)
+let reserve_var (ctxt: ctxt) (t: bits): mem =
+  ctxt_stack_alloc ctxt (bits2size t);
+  let sp = ctxt.sp in
+  Stack sp
+;;
+
 let inst_used_vregs (i: inst): vreg list =
   let used_vrs = ref [] in
   let visit_reg _ r =
@@ -115,7 +122,26 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
   let inactive = ref [] in (* inactive mregs *)
   let vreg_to_mreg = Hashtbl.create 0 in
   let mreg_to_vreg = Hashtbl.create 0 in
+  let vreg_to_spill = Hashtbl.create 0 in
   let (live_start, live_end) = calculate_live_points ctxt is in
+
+  let need_spill (reg: reg): bool =
+    match reg with
+    | Mreg r when r = -1 -> true
+    | _ -> false
+  in
+
+  let spill_vreg (vreg: vreg): mem =
+    if Hashtbl.mem vreg_to_spill vreg
+    then Hashtbl.find vreg_to_spill vreg
+    else begin
+      (* we put it into the list of spills, but not on the 'active' list *)
+      ctxt_stack_alloc ctxt 8;
+      let spill = Stack ctxt.sp in
+      Hashtbl.add vreg_to_spill vreg spill;
+      spill
+    end
+  in
 
   let inactivate_mreg (mreg: mreg) = 
     if Hashtbl.mem mreg_to_vreg mreg then
@@ -133,12 +159,22 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
       Hashtbl.find vreg_to_mreg vreg
     else
       let mreg = alloc_mreg ctxt in
-      assert (mreg != -1); (* TODO: spilling *)
-      Hashtbl.add vreg_to_mreg vreg mreg;
-      Hashtbl.add mreg_to_vreg mreg vreg;
-      active := mreg :: (!active);
-      inactive := List.filter (fun x -> x != mreg) (!inactive);
-      mreg
+      let ina_len = List.length (!inactive) in
+      match mreg with
+      | -1 when ina_len = 0 -> -1 (* invalid, needs spill *)
+      | _ when ina_len > 0 -> (* maybe valid register, but list has inactive registers *)
+        let rreg = List.nth !inactive 0 in
+        Hashtbl.replace vreg_to_mreg vreg rreg;
+        Hashtbl.replace mreg_to_vreg rreg vreg;
+        active := rreg :: (!active);
+        inactive := List.filter (fun x -> x != rreg) (!inactive);
+        rreg
+      | _ -> (* valid register, list has no inactive registers *)
+        Hashtbl.add vreg_to_mreg vreg mreg;
+        Hashtbl.add mreg_to_vreg mreg vreg;
+        active := mreg :: (!active);
+        inactive := List.filter (fun x -> x != mreg) (!inactive);
+        mreg
   in
 
   let expire_interval (i: vreg) =
@@ -158,8 +194,19 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
     | _ -> r
   in
 
+  let visit_mem iv m =
+    match m with
+    | Reg (Vreg v) ->
+      let nm = iv.visit_reg iv (Vreg v) in
+      if need_spill nm
+      then (spill_vreg v)
+      else Reg nm
+    | _ -> m
+  in
+
   let iv = {Il.standard_visitor with
-            visit_reg = visit_reg} in
+            visit_reg = visit_reg;
+            visit_mem = visit_mem} in
 
   Array.iteri (fun i v -> new_insts.(i) <- visit_inst iv v) is;
 

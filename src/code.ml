@@ -115,12 +115,13 @@ let code_ret (cs: code_State) (r: expr): unit =
                   pc = 0;})
 
 let code_var (cs: code_State) (v: vard): unit =
-  let dest = Ra.ctxt_alloc_vreg cs.ctxt in
+  let bits_ty = type2bits v.ty in
+  let dest = Ra.reserve_var cs.ctxt bits_ty in
   let old_cs_ty = cs.ty in
   cs.ty <- v.ty; (* for code_binopexp *)
   let op = code_exp cs v.value true in
   cs.ty <- old_cs_ty; (* restore helper *)
-  cs_reg_var cs v.name (dest, type2bits v.ty);
+  cs_reg_var cs v.name (dest, bits_ty);
   cs_code cs (Move {
     dest = dest;
     src = op;
@@ -169,8 +170,8 @@ let code_param
   (cs: code_State)
   (p: param)
   (r: reg): unit =
-  let dest = Ra.ctxt_alloc_vreg cs.ctxt in
   let ty_bits = type2bits p.ty in
+  let dest = Ra.reserve_var cs.ctxt ty_bits in
   cs_reg_var cs p.name @@ (dest, ty_bits);
   cs_code cs (Move {
     src = Mem (Reg r, ty_bits);
