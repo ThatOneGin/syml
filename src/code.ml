@@ -37,7 +37,7 @@ let cs_get_var (cs: code_State) (name: string): typed_mem =
 let cs_reg_var (cs: code_State) (name: string) (loc: typed_mem): unit =
   Hashtbl.replace cs.vars name loc
 
-let code_enter (cs: code_State): unit = cs_code cs Enter; ()
+let code_enter (cs: code_State): unit = cs_code cs (Enter (-1L)); ()
 let code_leave (cs: code_State): unit = cs_code cs Leave; ()
 
 (* create labels *)
@@ -127,13 +127,23 @@ let code_var (cs: code_State) (v: vard): unit =
     src = op;
   })
 
+let code_args
+  (cs: code_State)
+  (a: Ast.expr array): operand array =
+  let args = ref [||] in
+  Array.iter
+    (fun e ->
+      args := Array.append !args [|code_exp cs e true|]
+    ) a;
+  !args
+;;
+
 let code_call (cs: code_State) (c: vcall): unit =
+  let args = code_args cs c.args in
   cs_code cs (Il.Call {
     f = c.name;
-    args = [||];
-    regs = [||];
-  });
-  ()
+    args = args;
+  })
 ;;
 
 let rec code_stat (cs: code_State) (s: stat): unit =
@@ -162,32 +172,19 @@ and code_while (cs: code_State) (w: whilestat): unit =
   let cond: operand = code_exp cs w.cond false in
   cs_code cs (get_jmp_from_expr w.cond start_label cond false)
 
-(*
- * put the function argument into a 
- * local variable, e.g. edi -> [rbp - 4]
- *)
+(* Register a function parameter in 'vars' *)
 let code_param
   (cs: code_State)
   (p: param)
-  (r: reg): unit =
+  (i: int): unit =
   let ty_bits = type2bits p.ty in
-  let dest = Ra.reserve_var cs.ctxt ty_bits in
-  cs_reg_var cs p.name @@ (dest, ty_bits);
-  cs_code cs (Move {
-    src = Mem (Reg r, ty_bits);
-    dest = dest;
-  })
+  let dest = Stack (16 + (8 * i)) in
+  cs_reg_var cs p.name @@ (dest, ty_bits)
 
 (* move function arguments to stack variables *)
 let code_func_params (cs: code_State) (f: funct): unit =
-  let regs: reg list = get_arch_funcargs cs.smod.arch in
-  (* TODO: use stack when this is true *)
-  if List.length regs < Array.length f.params then
-    (* FIXME: better error message *)
-    Common.syml_errorf "Reached maximum function parameters capacity."
-  else
-    Array.iteri (fun (i: int) (p: param) ->
-      code_param cs p (List.nth regs i)) f.params
+  Array.iteri (fun (i: int) (p: param) ->
+    code_param cs p i) f.params
 
 let code_func (cs: code_State) (f: funct): unit = 
   code_namedlabel cs f.name true; 
@@ -216,10 +213,29 @@ let patch_ret (cs: code_State): unit =
   in
   Array.iter iter cs.code; ()
 
+let align_vars (cs: code_State) (n: int): int64 =
+  let x = get_arch_stack_align cs.smod.arch in
+  if n = 0
+  then 0L
+  else Int64.of_int @@ (n + (x - 1)) land (lnot (x - 1))
+
+let patch_enter (cs: code_State): unit =
+  let iter = fun (k: int) (i: inst): unit ->
+    match i with
+    | Enter _ ->
+      let sp = cs.ctxt.sp in
+      let n = align_vars cs (-sp) in
+      cs.code.(k) <- Enter n
+    | _ -> ()
+  in
+  Array.iteri iter cs.code
+
 let cs_finish (cs: code_State): insts =
   patch_ret cs;
+  patch_enter cs;
   let tmp: insts = regalloc cs.ctxt cs.code in
   cs.code <- [||];
   cs.ty <- Dtypes.Nil;
   cs.ctxt <- ctxt_new cs.smod;
+  Hashtbl.clear cs.vars;
   tmp

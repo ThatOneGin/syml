@@ -154,18 +154,35 @@ let emit_label (s: Il.smod) (l: Il.label): unit =
       Il.smod_emit s (Printf.sprintf
         "/* label constant %d */\n.LC%d:" id id)
 
+let emit_args (s: Il.smod) (a: Il.operand array): unit =
+  let len = Array.length a in
+  for i = len - 1 downto 0 do
+    Il.smod_emit s (Printf.sprintf "\tpushq\t%s\n" (emit_operand a.(i)))
+  done
+;;
+
 let emit_call (s: Il.smod) (c: Il.call): unit =
-  if (Array.length c.args) > 0 then begin
-    let f = fun (i: int) (o: Il.operand): unit ->
-      Il.smod_emit s
-        (Printf.sprintf "movq\t%%%s,\t%%%s"
-          (emit_operand o)
-          (getreg Il.Bits64 c.regs.(i)))
-    in
-    Array.iteri f c.args;
-    Il.smod_emit s (Printf.sprintf "\tcall\t%s" c.f)
-  end else
-    Il.smod_emit s (Printf.sprintf "call\t%s" c.f)
+  Il.smod_emit s (Printf.sprintf "/* call start (%s) */\n" c.f);
+  emit_args s c.args;
+  Il.smod_emit s (Printf.sprintf "\tcall\t%s\n" c.f);
+  Il.smod_emit s (Printf.sprintf "\t/* call end (%s) */" c.f);
+;;
+
+let fepilogue (s: Il.smod) (n: int64): unit =
+  Il.smod_emit s "pushq\t%rbp\n";
+  Il.smod_emit s "\tmovq %rsp, %rbp";
+  if n > 0L
+  then begin
+    emit_newline s;
+    Il.smod_emit s @@
+      Printf.sprintf "\tsubq, $%Ld, %%rbp" n
+  end else ()
+;;
+
+let fprologue (s: Il.smod): unit =
+  Il.smod_emit s "leave\n";
+  Il.smod_emit s "\tret"
+;;
 
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   emit_indent s;
@@ -173,8 +190,8 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   match i with
   | Move m -> emit_move s m
   | Ret r -> emit_ret s r
-  | Enter -> Il.smod_emit s "pushq\t%rbp\n\tmovq\t%rsp, %rbp"
-  | Leave -> Il.smod_emit s "popq\t%rbp\n\tret";
+  | Enter x -> fepilogue s x
+  | Leave -> fprologue s
   | Label l -> emit_label s l
   | Asm str -> Il.smod_emit s (Printf.sprintf "%s\t/* inline */" str)
   | Call c -> emit_call s c

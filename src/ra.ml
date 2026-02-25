@@ -11,7 +11,6 @@ type ctxt = {
     mutable sp: int; (* stack pointer *)
     mutable reg: int; (* first available register *)
     mutable vreg: int; (* first available virtual register *)
-    args: reg list; (* function arguments *)
   }
 
 let ctxt_new (smod: smod): ctxt =
@@ -19,27 +18,10 @@ let ctxt_new (smod: smod): ctxt =
    nregs = (Il.get_arch_nregister smod.arch);
    sp = 0;
    reg = 0;
-   args = (Il.get_arch_funcargs smod.arch);
    vreg = 0;}
 
 let ctxt_stack_alloc (ctxt: ctxt) (n: int): unit =
   ctxt.sp <- ctxt.sp - n; ()
-
-(* used when a leave instruction is reached *)
-let free_all (ctxt: ctxt): unit =
-  ctxt.reg <- 0;
-  ctxt.vreg <- 0;
-  ctxt.sp <- 0;
-  ()
-;;
-
-let alloc_call (ctxt: ctxt) (c: call): unit =
-  let f = (fun (i: int) _: unit ->
-    c.regs <- Array.append c.regs [|(List.nth ctxt.args i)|];
-    ())
-  in
-  Array.iteri f c.args
-;;
 
 let alloc_mreg (ctxt: ctxt): mreg = 
   if ctxt.reg >= ctxt.nregs
@@ -112,7 +94,6 @@ let calculate_live_points (ctxt: ctxt) (is: insts): (int array * int array) =
 (*
  * map virtual registers to
  * real machine registers
- * still can't do spilling
  *)
 let regalloc (ctxt: ctxt) (is: insts): insts =
   let ninsts = Array.length is in

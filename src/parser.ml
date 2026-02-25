@@ -237,18 +237,38 @@ let parse_asm (ps: parser_State): Ast.stat =
   | TK_string s -> ps_next ps; Ast.Asm s;
   | _ -> ps_unexpected ps "string"
 
-(* voidcall = IDENTIFIER '(' ')' *)
+(* arglist = '(' ( expr | expr ',' arglist ')' ) *)
+let parse_arglist (ps: parser_State): Ast.expr array =
+  ps_expect_sym ps TK_lparen "Expected '(' in function call.";
+  let li = ref [||] in
+  let rec aux (): unit =
+    match ps.peek with
+    | TK_EOF | TK_rparen -> ()
+    | _ ->
+      li := Array.append !li [|parse_expr ps|];
+      if ps.peek = TK_comma
+      then begin
+        ps_next ps;
+        aux ()
+      end else ()
+  in
+  aux ();
+  ps_expect_sym ps TK_rparen "')' to close argument list";
+  !li
+;;
+
+(* voidcall = IDENTIFIER '(' arglist ')' *)
 let parse_voidcall (ps: parser_State): Ast.stat =
   match ps.peek with
   | TK_identifier name ->
     ps_next ps;
-    ps_expect_sym ps TK_lparen "Expected '(' in function call.";
-    ps_expect_sym ps TK_rparen "Expected ')' in argument list.";
+    let args = parse_arglist ps in
     Ast.Voidcall {
       name = name;
-      args = [||];
+      args = args;
     }
   | _ -> ps_unexpected ps "statement"
+;;
 
 (* stat = var | return | asm | if *)
 let rec parse_stat (ps: parser_State): Ast.stat =
@@ -306,10 +326,11 @@ let parse_params (ps: parser_State): Ast.param array =
     | TK_identifier s ->
       let name = s in
       ps_next ps;
-      ps_expect_sym ps TK_colon "Expected ':'";
       let param: Ast.param = {
         name = name;
-        ty = parse_type ps;
+        ty = match ps.peek with
+          | TK_colon -> ps_next ps; parse_type ps
+          | _ -> Dtypes.Int
       } in
       params := Array.append !params [|param|];
       if ps.peek = TK_comma then begin

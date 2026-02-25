@@ -49,10 +49,16 @@ type ret = {
     mutable pc: int;
   }
 
+(*
+ * call arguments are pushed to the stack
+ * in reverse order.
+ *
+ * 'f' field should be changed to a 'operand' later on
+ * but for simplicity it will be a string for now
+ *)
 type call = {
     f: string;
-    mutable args: operand array; (* function arguments *)
-    mutable regs: reg array; (* function arguments destination *)
+    args: operand array;
   }
 
 type binop = {
@@ -78,8 +84,8 @@ type jmp =
 type inst =
   | Move of move
   | Ret of ret
-  | Enter (* enter next stack frame *)
-  | Leave (* leave current stack frame *)
+  | Enter of int64 (* enter next stack frame *)
+  | Leave          (* leave current stack frame *)
   | Label of label
   | Asm of string
   | Call of call
@@ -102,12 +108,9 @@ let get_arch_nregister (a: Common.target_arch): int =
   match a with
   | Linux_X86_64 -> 14 (* amount of general-purpose registers *)
 
-let get_arch_funcargs (a: Common.target_arch): reg list =
+let get_arch_stack_align (a: Common.target_arch): int =
   match a with
-  | Linux_X86_64 ->
-    [Mreg 4; Mreg 5; (* rdi  rsi *)
-     Mreg 3; Mreg 2; (* rdx, rcx *)
-     Mreg 6; Mreg 7] (* r8, r9   *)
+  | Linux_X86_64 -> 16
 
 let smod_create (name: string) (arch: Common.target_arch): smod =
    {modname = name;
@@ -217,7 +220,7 @@ let print_insts (is: insts): unit =
           | Ret r ->
             Printf.printf "ret %s"
               (op2str r.value)
-          | Enter -> print_endline "Enter"
+          | Enter _ -> print_endline "Enter"
           | Leave -> print_endline "Leave"
           | Label l ->
             Printf.printf "\r%s:"
@@ -283,7 +286,7 @@ let visit_inst (iv: inst_visitor) (i: inst): inst =
                     src = iv.visit_opr iv m.src}
   | Ret r -> Ret {r with
                   value = iv.visit_opr iv r.value;}
-  | Enter -> Enter
+  | Enter x -> Enter x
   | Leave -> Leave
   | Label l -> Label l
   | Asm s -> Asm s
