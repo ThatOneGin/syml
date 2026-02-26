@@ -3,7 +3,8 @@ main:
 	/* label constant 0 */
 .LC0:
 	pushq	%rbp
-	movq	%rsp, %rbp
+	movq %rsp, %rbp
+	subq $16, %rbp
 	movl	$2,	%eax
 	movl	$4,	%ebx
 	addl	%ebx,	%eax
@@ -22,5 +23,5 @@ main:
 	jmp	.LC1
 	/* label constant 1 */
 .LC1:
-	popq	%rbp
+	leave
 	ret
