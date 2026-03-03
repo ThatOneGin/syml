@@ -161,7 +161,7 @@ let smod_push_const (s: smod) (k: string): int =
 let type2bits (ty: Dtypes.datatype): bits =
   match ty with
   | I32 | Int -> Bits32
-  | Ptr _ | I64 | Str -> Bits64
+  | Fptr _ | Ptr _ | I64 | Str -> Bits64
   | Nil | I8 -> Bits8
   | I16 -> Bits16
 

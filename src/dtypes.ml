@@ -14,10 +14,16 @@ type datatype =
   | I32
   | I64
   | Ptr of datatype
+  | Fptr of fptr
+and fptr = {
+    ret: datatype;
+    args: datatype list;
+  }
 
 let typecmp
   (t1: datatype)
-  (t2: datatype): bool = t1 == t2
+  (t2: datatype): bool =
+  t1 = t2
 
 let rec type2str (t: datatype): string =
   match t with
@@ -29,6 +35,7 @@ let rec type2str (t: datatype): string =
   | I32 -> "i32"
   | I64 -> "i64"
   | Ptr t -> "ptr<" ^ (type2str t) ^ ">"
+  | Fptr _ -> "function"
 
 let type_error (what: string): 'a =
   syml_errorf "type error: %s" what

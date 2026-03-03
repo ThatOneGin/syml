@@ -20,15 +20,15 @@ let ts_new (parent: type_State option): type_State = {
 
 let ts_enter (ts: type_State): type_State = ts_new (Some ts)
 
-let ts_reg_variable (ts: type_State) (name: string) (ty: datatype): unit =
+let ts_reg_symbol (ts: type_State) (name: string) (ty: datatype): unit =
   Hashtbl.replace ts.variables name ty; ()
 
-let rec ts_query_variable (ts: type_State) (name: string): datatype =
+let rec ts_query_symbol (ts: type_State) (name: string): datatype =
   match Hashtbl.find_opt ts.variables name with
   | Some t -> t
   | None when ts.parent = None -> type_error (Printf.sprintf "Unknown variable '%s'" name)
   | None ->
-    ts_query_variable
+    ts_query_symbol
       (match ts.parent with
         | Some t -> t
         | None -> Common.unreachable
@@ -95,7 +95,7 @@ and typeof_expr (ts: type_State) (e: expr): datatype =
   match e with
   | Number _ -> Int
   | String _ -> Str
-  | Ident s -> ts_query_variable ts s
+  | Ident s -> ts_query_symbol ts s
   | Binop _ -> check_binop ts e
 
 let check_vard (ts: type_State) (v: vard): unit =
@@ -105,7 +105,7 @@ let check_vard (ts: type_State) (v: vard): unit =
     (Printf.sprintf
       "variable type mismatch (%s != %s)"
       (type2str v.ty) (type2str texp))
-  else ts_reg_variable ts v.name v.ty; ()
+  else ts_reg_symbol ts v.name v.ty; ()
 
 let check_return (ts: type_State) (r: expr): unit =
   let texp = typeof_expr ts r in
@@ -117,9 +117,18 @@ let check_return (ts: type_State) (r: expr): unit =
   else ()
 
 let check_call (ts: type_State) (c: vcall): unit =
-  let t = ts_query_variable ts c.name in
-  if t = Dtypes.Nil then ()
-  else
+  let t = ts_query_symbol ts c.name in
+  match t with
+  | Fptr ft when ft.ret = Nil ->
+     List.iteri (fun i a ->
+         let arg_ty = typeof_expr ts c.args.(i) in
+         if equal arg_ty a then ()
+         else
+           type_error
+             (Printf.sprintf "argument %d type mismatch (wanted %s, got %s)"
+               i (type2str a) (type2str arg_ty))
+       ) ft.args
+  | _ ->
     type_error
     (Printf.sprintf
       "A call statement must return nil, but instead returns %s (function '%s')."
@@ -144,7 +153,7 @@ and check_while (ts: type_State) (w: whilestat): unit =
 
 let reg_params (ts: type_State) (t: Ast.param array): unit =
   let f = (fun (p: Ast.param) ->
-    ts_reg_variable ts p.name p.ty;
+    ts_reg_symbol ts p.name p.ty;
   ) in
   Array.iter f t
 
@@ -153,10 +162,18 @@ let check_func (ts: type_State) (f: funct): unit =
   reg_params ts f.params;
   Array.iter (fun (s: stat) -> check_stat ts s) f.blk.body
 
+let types_from_paramlist (ps: param array): datatype list =
+  let nparams = Array.length ps in
+  List.init nparams (fun i -> ps.(i).ty)
+
 let check_toplevel (ts: type_State) (f: toplevel): unit =
   match f with
   | Func ft ->
-    let func_scope = ts_enter ts in
-    check_func func_scope ft;
-    ts_reg_variable ts ft.name ft.ty
+     let func_scope = ts_enter ts in
+     let func_type: fptr = {
+                         ret = ft.ty;
+                         args = types_from_paramlist ft.params;
+                       } in
+    ts_reg_symbol ts ft.name (Fptr func_type);
+    check_func func_scope ft
   | _ -> ()
