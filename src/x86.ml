@@ -175,7 +175,7 @@ let fepilogue (s: Il.smod) (n: int64): unit =
   then begin
     emit_newline s;
     Il.smod_emit s @@
-      Printf.sprintf "\tsubq $%Ld, %%rbp" n
+      Printf.sprintf "\tsubq $%Ld, %%rsp" n
   end else ()
 ;;
 

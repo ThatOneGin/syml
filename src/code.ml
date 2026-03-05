@@ -29,6 +29,33 @@ let cs_new (smod: smod): code_State = {
 let cs_code (cs: code_State) (i: inst): unit =
   cs.code <- Array.append cs.code [|i|]; ()
 
+let cs_move
+  (cs: code_State)
+  (dest: mem)
+  (src: operand): unit =
+  cs_code cs (Move {
+    dest = dest;
+    src = src;
+  })
+;;
+
+let cs_binop
+    (cs: code_State)
+    (left: operand)
+    (right: operand)
+    (op: Ast.operator)
+    (ty: Dtypes.datatype)
+    (ret: bool)
+  : unit =
+  cs_code cs (Binop {
+    left = left;
+    right = right;
+    op = op;
+    ty = ty;
+    return_val = ret;
+  })
+;;
+
 let cs_get_var (cs: code_State) (name: string): typed_mem =
   match Hashtbl.find_opt cs.vars name with
   | Some v -> v
@@ -81,27 +108,10 @@ let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop (l, o, r) ->
     let ty_bits = type2bits cs.ty in
-    let lhs_reg = ctxt_alloc_vreg cs.ctxt in
-    let rhs_reg = ctxt_alloc_vreg cs.ctxt in
-    (* move the left hand *)
-    cs_code cs (Move {
-      dest = lhs_reg;
-      src = code_exp cs l true;
-    });
-    (* move the right hand *)
-    cs_code cs (Move {
-      dest = rhs_reg;
-      src = code_exp cs r true;
-    });
-    let b = Il.Binop {
-      left = Il.Mem (lhs_reg, ty_bits);
-      right = Il.Mem (rhs_reg, ty_bits);
-      op = o;
-      ty = cs.ty;
-      return_val = return_val;
-    } in
-    cs_code cs b;
-    Il.Mem (lhs_reg, ty_bits)
+    let dst = ctxt_alloc_vreg cs.ctxt in
+    cs_move cs dst @@ code_exp cs l true; (* move the left hand *)
+    cs_binop cs (Il.Mem (dst, ty_bits)) (code_exp cs r true) o cs.ty return_val;
+    Il.Mem (dst, ty_bits)
   | _ -> unreachable "Codegen" "expected binary expression";
 and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
