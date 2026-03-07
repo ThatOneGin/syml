@@ -1,27 +1,21 @@
-	.globl main
+.globl	main
 main:
-	/* label constant 0 */
 .LC0:
 	pushq	%rbp
-	movq %rsp, %rbp
-	subq $16, %rbp
-	movl	$2,	%eax
-	movl	$4,	%ebx
-	addl	%ebx,	%eax
-	movl	%eax,	%ebx
-	movl	$3,	%eax
-	imull	%eax,	%ebx
-	movl	%ebx,	-4(%rbp)
-	movl	$2,	%eax
-	movl	$4,	%ebx
-	movl	$3,	%r8d
-	imull	%r8d,	%ebx
-	movl	%ebx,	%r8d
-	addl	%r8d,	%eax
-	movl	%eax,	-8(%rbp)
-	movl	-4(%rbp),	%eax
+	movq	%rsp, %rbp
+	subq	$16, %rsp
+	movl	$2, %eax
+	addl	$4, %eax
+	movl	%eax, %ebx
+	imull	$3, %ebx
+	movl	%ebx, -4(%rbp)
+	movl	$2, %eax
+	movl	$4, %ebx
+	imull	$3, %ebx
+	addl	%ebx, %eax
+	movl	%eax, -8(%rbp)
+	movl	-4(%rbp), %eax
 	jmp	.LC1
-	/* label constant 1 */
 .LC1:
 	leave
 	ret

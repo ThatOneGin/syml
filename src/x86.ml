@@ -90,7 +90,7 @@ let finish_binop (s: Il.smod) (b: Il.binop): unit =
           (get_cond_suffix b.op false));
       (if suffix != 'b' then
         Il.smod_emit s
-          (Printf.sprintf "\n\tmovzb%c\t%%al,\t%s"
+          (Printf.sprintf "\n\tmovzb%c\t%%al, %s"
             suffix (emit_operand b.left)))
     | _ -> ()
 
@@ -104,7 +104,7 @@ let emit_binop (s: Il.smod) (b: Il.binop): unit =
     | _ -> "; "
   in
   Il.smod_emit s
-    (Printf.sprintf "%s%c\t%s,\t%s"
+    (Printf.sprintf "\t%s%c\t%s, %s"
       ins
       (getmnemonicsuffix (Il.type2bits b.ty))
       (emit_operand b.right)
@@ -113,18 +113,18 @@ let emit_binop (s: Il.smod) (b: Il.binop): unit =
 
 let emit_jmp (s: Il.smod) (j: Il.jmp): unit =
   match j with
-  | Je i -> Il.smod_emit s (Printf.sprintf "je\t.LC%d" i)
-  | Jne i -> Il.smod_emit s (Printf.sprintf "jne\t.LC%d" i)
+  | Je i -> Il.smod_emit s (Printf.sprintf "\tje\t.LC%d" i)
+  | Jne i -> Il.smod_emit s (Printf.sprintf "\tjne\t.LC%d" i)
   | Test t ->
     let op = emit_operand t.op in
-    Il.smod_emit s (Printf.sprintf "cmpq\t$0,\t%s\n" op);
+    Il.smod_emit s (Printf.sprintf "\tcmpq\t$0, %s\n" op);
     Il.smod_emit s (Printf.sprintf "\tje\t.LC%d" t.jit)
   | Jump i -> Il.smod_emit s (Printf.sprintf "jmp\t.LC%d" i)
 
 let emit_move (s: Il.smod) (m: Il.move): unit =
   let bits = Il.get_operand_type m.src in
   Il.smod_emit s
-    (Printf.sprintf "mov%c\t%s,\t%s"
+    (Printf.sprintf "\tmov%c\t%s, %s"
       (getmnemonicsuffix bits)
       (emit_operand m.src)
       (emit_mem m.dest bits))
@@ -135,10 +135,10 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
     let op: string = emit_operand r.value in
     let rr: string = "%" ^ getreg b (Mreg 0) in
     if String.equal op rr then
-      Il.smod_emit s "nop\n"
+      Il.smod_emit s "\tnop\n"
     else begin 
       Il.smod_emit s
-        (Printf.sprintf "mov%c\t%s,\t%s\n"
+        (Printf.sprintf "\tmov%c\t%s, %s\n"
           (getmnemonicsuffix b)
           (emit_operand r.value)
           ("%" ^ getreg b (Mreg 0)))
@@ -148,11 +148,11 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
 let emit_label (s: Il.smod) (l: Il.label): unit =
   match l with
     | Named_label nl ->
-      (if nl.global then Il.smod_emit s (".globl " ^ nl.name ^ "\n"));
+      (if nl.global then Il.smod_emit s (".globl\t" ^ nl.name ^ "\n"));
       Il.smod_emit s (Printf.sprintf "%s:" nl.name);
     | Unnamed_label id ->
       Il.smod_emit s (Printf.sprintf
-        "/* label constant %d */\n.LC%d:" id id)
+        ".LC%d:" id)
 
 let emit_args (s: Il.smod) (a: Il.operand array): unit =
   let len = Array.length a in
@@ -162,30 +162,27 @@ let emit_args (s: Il.smod) (a: Il.operand array): unit =
 ;;
 
 let emit_call (s: Il.smod) (c: Il.call): unit =
-  Il.smod_emit s (Printf.sprintf "/* call start (%s) */\n" c.f);
   emit_args s c.args;
-  Il.smod_emit s (Printf.sprintf "\tcall\t%s\n" c.f);
-  Il.smod_emit s (Printf.sprintf "\t/* call end (%s) */" c.f);
+  Il.smod_emit s (Printf.sprintf "\tcall\t%s" c.f)
 ;;
 
 let fepilogue (s: Il.smod) (n: int64): unit =
-  Il.smod_emit s "pushq\t%rbp\n";
-  Il.smod_emit s "\tmovq %rsp, %rbp";
+  Il.smod_emit s "\tpushq\t%rbp\n";
+  Il.smod_emit s "\tmovq\t%rsp, %rbp";
   if n > 0L
   then begin
     emit_newline s;
     Il.smod_emit s @@
-      Printf.sprintf "\tsubq $%Ld, %%rsp" n
+      Printf.sprintf "\tsubq\t$%Ld, %%rsp" n
   end else ()
 ;;
 
 let fprologue (s: Il.smod): unit =
-  Il.smod_emit s "leave\n";
+  Il.smod_emit s "\tleave\n";
   Il.smod_emit s "\tret"
 ;;
 
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
-  emit_indent s;
   let () =
   match i with
   | Move m -> emit_move s m
@@ -193,7 +190,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Enter x -> fepilogue s x
   | Leave -> fprologue s
   | Label l -> emit_label s l
-  | Asm str -> Il.smod_emit s (Printf.sprintf "%s\t/* inline */" str)
+  | Asm str -> Il.smod_emit s (Printf.sprintf "\t%s\t/* inline */" str)
   | Call c -> emit_call s c
   | Binop b -> emit_binop s b
   | Jmp j -> emit_jmp s j
@@ -213,7 +210,7 @@ let emit_constants (s: Il.smod): unit =
     else
       let str = Array.get s.constants i in
       Il.smod_emit s
-        (Printf.sprintf ".LK%d:\n\t.asciz \"%s\"\n" i str);
+        (Printf.sprintf ".LK%d:\n\t.asciz\t\"%s\"\n" i str);
         aux (i + 1)
   in
   aux 0
