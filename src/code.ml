@@ -39,6 +39,16 @@ let cs_move
   })
 ;;
 
+let cs_alloca
+  (cs: code_State)
+  (ty: Dtypes.datatype)
+  (dest: vreg): unit =
+  cs_code cs (Alloca {
+    ty = ty;
+    dest = dest;
+  })
+;;
+
 let cs_binop
     (cs: code_State)
     (left: operand)
@@ -126,16 +136,14 @@ let code_ret (cs: code_State) (r: expr): unit =
 
 let code_var (cs: code_State) (v: vard): unit =
   let bits_ty = type2bits v.ty in
-  let dest = Ra.reserve_var cs.ctxt bits_ty in
+  let dest = Ra.ctxt_alloc_vreg cs.ctxt in
   let old_cs_ty = cs.ty in
   cs.ty <- v.ty; (* for code_binopexp *)
   let op = code_exp cs v.value true in
   cs.ty <- old_cs_ty; (* restore helper *)
   cs_reg_var cs v.name (dest, bits_ty);
-  cs_code cs (Move {
-    dest = dest;
-    src = op;
-  })
+  cs_alloca cs v.ty (vreg_of_mem dest);
+  cs_move cs dest op
 
 let code_args
   (cs: code_State)
@@ -233,8 +241,11 @@ let patch_enter (cs: code_State): unit =
   let iter = fun (k: int) (i: inst): unit ->
     match i with
     | Enter _ ->
-      let sp = cs.ctxt.sp in
-      let n = align_vars cs (-sp) in
+      let _n: int ref = ref 0 in
+      Hashtbl.iter (fun _ v -> 
+        let (_, b) = v in
+        _n := bits2size b) cs.vars;
+      let n = align_vars cs !_n in
       cs.code.(k) <- Enter n
     | _ -> ()
   in

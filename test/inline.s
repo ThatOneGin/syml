@@ -4,6 +4,7 @@ main:
 	pushq	%rbp
 	movq	%rsp, %rbp
 	subq	$16, %rsp
+/* alloca %0 string */
 	movq	$.LK0, -8(%rbp)
 	movq %rax, %rdi	/* inline */
 	call puts	/* inline */

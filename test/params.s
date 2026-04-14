@@ -6,6 +6,7 @@ add:
 	subq	$16, %rsp
 	movl	16(%rbp), %eax
 	addl	24(%rbp), %eax
+/* alloca %0 i32 */
 	movl	%eax, -4(%rbp)
 	movl	-4(%rbp), %eax
 	jmp	.LC1

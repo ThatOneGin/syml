@@ -195,6 +195,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Binop b -> emit_binop s b
   | Jmp j -> emit_jmp s j
   | Nop -> Il.smod_emit s "/* nop */"
+  | Alloca a -> Il.smod_emit s (Printf.sprintf "/* alloca %%%d %s */" a.dest (Dtypes.type2str a.ty))
   in
   emit_newline s
 

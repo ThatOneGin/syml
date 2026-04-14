@@ -178,10 +178,14 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
   let visit_mem iv m =
     match m with
     | Reg (Vreg v) ->
-      let nm = iv.visit_reg iv (Vreg v) in
-      if need_spill nm
-      then (spill_vreg v)
-      else Reg nm
+      if Hashtbl.mem vreg_to_spill v then
+        Hashtbl.find vreg_to_spill v
+      else begin
+        let nm = iv.visit_reg iv (Vreg v) in
+        if need_spill nm
+        then (spill_vreg v)
+        else Reg nm
+      end
     | _ -> m
   in
 
@@ -189,7 +193,15 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
             visit_reg = visit_reg;
             visit_mem = visit_mem} in
 
-  Array.iteri (fun i v -> new_insts.(i) <- visit_inst iv v) is;
+  Array.iteri (fun i v ->
+    match v with (* check for alloca *)
+    | Alloca a -> 
+      let bits_ty = type2bits a.ty in
+      let dest = reserve_var ctxt bits_ty in
+      Hashtbl.add vreg_to_spill a.dest dest;
+      new_insts.(i) <- v
+    | _ -> 
+      new_insts.(i) <- visit_inst iv v) is;
 
   new_insts
 ;;

@@ -31,6 +31,12 @@ type operand =
   | Mem of typed_mem
   | Imm of typed_imm
 
+(* pseudo-instruction used to allocate a stack-slot for vreg 'dest' *)
+type alloca = {
+    ty: Dtypes.datatype;
+    dest: vreg;
+  }
+
 type move = {
     dest: mem;
     src: operand;
@@ -82,6 +88,7 @@ type jmp =
   | Jump of int (* inconditional jump *)
 
 type inst =
+  | Alloca of alloca
   | Move of move
   | Ret of ret
   | Enter of int64 (* enter next stack frame *)
@@ -107,10 +114,12 @@ type smod = {
 let get_arch_nregister (a: Common.target_arch): int =
   match a with
   | Linux_X86_64 -> 14 (* amount of general-purpose registers *)
+;;
 
 let get_arch_stack_align (a: Common.target_arch): int =
   match a with
   | Linux_X86_64 -> 16
+;;
 
 let smod_create (name: string) (arch: Common.target_arch): smod =
    {modname = name;
@@ -119,21 +128,25 @@ let smod_create (name: string) (arch: Common.target_arch): smod =
     nregs = (get_arch_nregister arch);
     labelcount = 0;
     constants = [||]}
+;;
 
 let smod_newlabel (smod: smod) (global: bool) =
   if not global then begin
     smod.labelcount <- smod.labelcount + 1; ()
   end else
     ()
+;;
 
 let smod_open_out (s: smod) (name: string): unit =
   let fd = open_out name in
   s.asm_buf <- (Some fd); ()
+;;
 
 let smod_close_out (s: smod): unit =
   match s.asm_buf with
   | Some fd -> close_out fd; ()
   | None -> ()
+;;
 
 let smod_emit (s: smod) (b: string): unit =
   let buf =
@@ -143,6 +156,7 @@ let smod_emit (s: smod) (b: string): unit =
       "trying to write on a non existent buffer.\n"
   in
   Printf.fprintf buf "%s" b; ()
+;;
 
 (* push a value to the constants table *)
 let smod_push_const (s: smod) (k: string): int =
@@ -157,6 +171,7 @@ let smod_push_const (s: smod) (k: string): int =
   | None ->
     s.constants <- Array.append s.constants [|k|]; 
     len
+;;
 
 let type2bits (ty: Dtypes.datatype): bits =
   match ty with
@@ -164,6 +179,7 @@ let type2bits (ty: Dtypes.datatype): bits =
   | Fptr _ | Ptr _ | I64 | Str -> Bits64
   | Nil | I8 -> Bits8
   | I16 -> Bits16
+;;
 
 let bits2size (b: bits): int =
   match b with
@@ -171,11 +187,19 @@ let bits2size (b: bits): int =
   | Bits16 -> 2
   | Bits32 -> 4
   | Bits64 -> 8
+;;
 
 let get_operand_type (o: operand): bits =
   match o with
   | Mem (_, b)
   | Imm (_, b) -> b
+;;
+
+let vreg_of_mem (m: mem): vreg =
+  match m with
+  | (Reg (Vreg v)) -> v
+  | _ -> assert false
+;;
 
 (* IL printer for visualization *)
 
@@ -183,22 +207,26 @@ let reg2str (r: reg): string =
   match r with 
   | Vreg v -> Printf.sprintf "%%%d" v
   | Mreg m -> Printf.sprintf "R%d" m
+;;
 
 let mem2str (m: mem): string =
   match m with
   | Addr a -> Printf.sprintf "LK[%d]" a
   | Reg r -> reg2str r
   | Stack s -> Printf.sprintf "[sp:%d]" s
+;;
 
 let op2str (o: operand): string =
   match o with
   | Imm (i, _) -> Printf.sprintf "%Ld" i
   | Mem (m, _) -> mem2str m
+;;
 
 let label2str (l: label): string =
   match l with
   | Named_label nl -> nl.name
   | Unnamed_label id -> "LC<" ^ (string_of_int id) ^ ">"
+;;
 
 let print_jmp (j: jmp) =
   match j with
@@ -206,6 +234,7 @@ let print_jmp (j: jmp) =
   | Jne i -> Printf.printf "jne %d" i
   | Test t -> Printf.printf "test %s, LC<%d>" (op2str t.op) t.jit
   | Jump i -> Printf.printf "jmp %d" i
+;;
 
 let print_insts (is: insts): unit =
   let f =
@@ -213,6 +242,9 @@ let print_insts (is: insts): unit =
       print_char '\t';
       begin
         match i with
+          | Alloca a ->
+            Printf.printf "%s <- alloca %s"
+              (reg2str (Vreg a.dest)) (Dtypes.type2str a.ty)
           | Move m ->
             Printf.printf "%s <- %s"
               (mem2str m.dest)
@@ -248,6 +280,7 @@ let print_insts (is: insts): unit =
   in
   Array.iter f is;
   ()
+;;
 
 (*
  * Traverse an inst array with pre defined routines
@@ -282,6 +315,7 @@ let standard_visitor =
 
 let visit_inst (iv: inst_visitor) (i: inst): inst =
   match i with
+  | Alloca _ -> i (* pseudo-instruction *)
   | Move m -> Move {dest = iv.visit_mem iv m.dest;
                     src = iv.visit_opr iv m.src}
   | Ret r -> Ret {r with
@@ -296,3 +330,4 @@ let visit_inst (iv: inst_visitor) (i: inst): inst =
                       right = iv.visit_opr iv b.right;}
   | Jmp j -> Jmp j
   | Nop -> Nop
+;;
