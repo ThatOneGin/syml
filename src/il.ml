@@ -42,10 +42,16 @@ type move = {
     src: operand;
   }
 
+type ltype =
+  | Lfunction
+  | Lobject
+  | Lnone
+
 type label =
   | Named_label of {
       name: string;
       global: bool;
+      ltype: ltype;
     }
   | Unnamed_label of int
 

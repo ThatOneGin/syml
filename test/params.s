@@ -1,4 +1,6 @@
+.text
 .globl	add
+.type add, @function
 add:
 .LC0:
 	pushq	%rbp
@@ -13,7 +15,10 @@ add:
 .LC1:
 	leave
 	ret
+.size add, .-add
+.text
 .globl	main
+.type main, @function
 main:
 .LC2:
 	pushq	%rbp
@@ -23,3 +28,4 @@ main:
 .LC3:
 	leave
 	ret
+.size main, .-main

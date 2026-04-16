@@ -152,14 +152,26 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
     Il.smod_emit s (Printf.sprintf "\tjmp\t.LC%d" r.pc)
 ;;
 
+let emit_fsize (s: Il.smod) (name: string): unit =
+  Il.smod_emit s (Printf.sprintf ".size %s, .-%s\n" name name)
+;;
+
+let emit_ltype (s: Il.smod) (name: string) (l: Il.ltype): unit =
+  match l with
+  | Lfunction -> Il.smod_emit s (Printf.sprintf ".type %s, @function\n" name)
+  | Lobject -> Il.smod_emit s (Printf.sprintf ".type %s, @object\n" name)
+  | Lnone -> ()
+;;
+
 let emit_label (s: Il.smod) (l: Il.label): unit =
   match l with
-    | Named_label nl ->
-      (if nl.global then Il.smod_emit s (".globl\t" ^ nl.name ^ "\n"));
-      Il.smod_emit s (Printf.sprintf "%s:" nl.name);
-    | Unnamed_label id ->
-      Il.smod_emit s (Printf.sprintf
-        ".LC%d:" id)
+  | Named_label nl ->
+    (if nl.global then Il.smod_emit s (".globl\t" ^ nl.name ^ "\n"));
+    emit_ltype s nl.name nl.ltype;
+    Il.smod_emit s (Printf.sprintf "%s:" nl.name);
+  | Unnamed_label id ->
+    Il.smod_emit s (Printf.sprintf
+      ".LC%d:" id)
 ;;
 
 let emit_args (s: Il.smod) (a: Il.operand array): unit =
@@ -213,7 +225,11 @@ let emit_insts (s: Il.smod) (is: Il.insts): unit =
     emit_inst s i;
   in
   Il.smod_emit s ".text\n";
-  Array.iter iterator is
+  Array.iter iterator is;
+  match is.(0) with
+  | Label (Named_label l) ->
+    emit_fsize s l.name (* optional, but a good thing if we can really put the .size directive *)
+  | _ -> ()
 ;;
 
 let emit_constants (s: Il.smod): unit =

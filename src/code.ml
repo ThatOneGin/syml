@@ -24,6 +24,7 @@ let cs_new (smod: smod): code_State = {
     ty = Dtypes.Nil;
     vars = Hashtbl.create 32;
   }
+;;
 
 (* emit instruction to cs.code *)
 let cs_code (cs: code_State) (i: inst): unit =
@@ -70,29 +71,35 @@ let cs_get_var (cs: code_State) (name: string): typed_mem =
   match Hashtbl.find_opt cs.vars name with
   | Some v -> v
   | _ -> syml_errorf "Unknown variable %s" name
+;;
 
 let cs_reg_var (cs: code_State) (name: string) (loc: typed_mem): unit =
   Hashtbl.replace cs.vars name loc
+;;
 
-let code_enter (cs: code_State): unit = cs_code cs (Enter (-1L)); ()
-let code_leave (cs: code_State): unit = cs_code cs Leave; ()
+let code_enter (cs: code_State): unit = cs_code cs (Enter (-1L)); ();;
+let code_leave (cs: code_State): unit = cs_code cs Leave; ();;
 
 (* create labels *)
 
-let code_namedlabel (cs: code_State) (name: string) (global: bool): unit =
+let code_namedlabel (cs: code_State) (name: string) (global: bool) (ty: ltype): unit =
   cs_code cs (Label (Named_label {
     name = name;
     global = global;
+    ltype = ty;
   })); ()
+;;
 
 let code_unnamedlabel (cs: code_State): unit =
   cs_code cs (Label (Unnamed_label cs.smod.labelcount));
   smod_newlabel cs.smod false; ()
+;;
 
 (* Reserve label id but not emit a 'label' instruction on the buffer *)
 let reserve_unnamed_label (cs: code_State): int =
   let id = cs.smod.labelcount in
   smod_newlabel cs.smod false; id
+;;
 
 let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand) (invert: bool): inst =
   match e with
@@ -103,6 +110,7 @@ let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand) (invert: bool): inst =
     | _ -> Jmp (Test {op = o; jit =i;})
   end
   | _ -> Jmp (Test {op = o; jit =i;})
+;;
 
 (* -- translations -- *)
 
@@ -112,6 +120,7 @@ let code_primexp (cs: code_State) (e: expr): operand =
   | String s -> Il.Mem (Il.Addr (smod_push_const cs.smod s), Bits64)
   | Ident s -> Il.Mem (cs_get_var cs s)
   | _ -> Il.Imm (0L, Bits8)
+;;
 
 (* compile a binary expressino *)
 let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
@@ -127,12 +136,14 @@ and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop _ -> code_binopexp cs e return_val
   | _ -> code_primexp cs e
+;;
 
 let code_ret (cs: code_State) (r: expr): unit =
   let op = (code_exp cs r true) in
   cs_code cs (Ret {ty = cs.ty;
                   value = op;
                   pc = 0;})
+;;
 
 let code_var (cs: code_State) (v: vard): unit =
   let bits_ty = type2bits v.ty in
@@ -144,6 +155,7 @@ let code_var (cs: code_State) (v: vard): unit =
   cs_reg_var cs v.name (dest, bits_ty);
   cs_alloca cs v.ty (vreg_of_mem dest);
   cs_move cs dest op
+;;
 
 let code_args
   (cs: code_State)
@@ -189,6 +201,7 @@ and code_while (cs: code_State) (w: whilestat): unit =
   cs_code cs (Label (Unnamed_label cond_label));
   let cond: operand = code_exp cs w.cond false in
   cs_code cs (get_jmp_from_expr w.cond start_label cond false)
+;;
 
 (* Register a function parameter in 'vars' *)
 let code_param
@@ -198,20 +211,23 @@ let code_param
   let ty_bits = type2bits p.ty in
   let dest = Stack (16 + (8 * i)) in
   cs_reg_var cs p.name @@ (dest, ty_bits)
+;;
 
 (* move function arguments to stack variables *)
 let code_func_params (cs: code_State) (f: funct): unit =
   Array.iteri (fun (i: int) (p: param) ->
     code_param cs p i) f.params
+;;
 
 let code_func (cs: code_State) (f: funct): unit = 
-  code_namedlabel cs f.name true; 
+  code_namedlabel cs f.name true Lfunction; 
   code_unnamedlabel cs;
   code_enter cs;
   code_func_params cs f;
   Array.iter (fun (s: stat): unit -> code_stat cs s) f.blk.body;
   code_unnamedlabel cs;
   code_leave cs
+;;
 
 let cs_toplevel (cs: code_State) (t: toplevel): unit =
   match t with
@@ -219,6 +235,7 @@ let cs_toplevel (cs: code_State) (t: toplevel): unit =
     cs.ty <- f.ty;
     code_func cs f
   | _ -> ()
+;;
 
 (* set all returns of the function to the last label
  * which contains a leave instruction
@@ -230,12 +247,14 @@ let patch_ret (cs: code_State): unit =
     | _ -> ()
   in
   Array.iter iter cs.code; ()
+;;
 
 let align_vars (cs: code_State) (n: int): int64 =
   let x = get_arch_stack_align cs.smod.arch in
   if n = 0
   then 0L
   else Int64.of_int @@ (n + (x - 1)) land (lnot (x - 1))
+;;
 
 let patch_enter (cs: code_State): unit =
   let iter = fun (k: int) (i: inst): unit ->
@@ -250,6 +269,7 @@ let patch_enter (cs: code_State): unit =
     | _ -> ()
   in
   Array.iteri iter cs.code
+;;
 
 let cs_finish (cs: code_State): insts =
   patch_ret cs;
@@ -260,3 +280,4 @@ let cs_finish (cs: code_State): insts =
   cs.ctxt <- ctxt_new cs.smod;
   Hashtbl.clear cs.vars;
   tmp
+;;

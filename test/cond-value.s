@@ -1,4 +1,6 @@
+.text
 .globl	main
+.type main, @function
 main:
 .LC0:
 	pushq	%rbp
@@ -19,3 +21,4 @@ main:
 .LC1:
 	leave
 	ret
+.size main, .-main

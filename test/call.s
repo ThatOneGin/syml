@@ -1,4 +1,6 @@
+.text
 .globl	test
+.type test, @function
 test:
 .LC0:
 	pushq	%rbp
@@ -11,7 +13,10 @@ test:
 .LC1:
 	leave
 	ret
+.size test, .-test
+.text
 .globl	main
+.type main, @function
 main:
 .LC2:
 	pushq	%rbp
@@ -22,5 +27,7 @@ main:
 .LC3:
 	leave
 	ret
+.size main, .-main
+.section .rodata
 .LK0:
 	.asciz	"Hello, world!\n"
