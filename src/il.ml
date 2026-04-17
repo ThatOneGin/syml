@@ -93,6 +93,12 @@ type jmp =
   | Test of test
   | Jump of int (* inconditional jump *)
 
+(* generate a lea or a lea equivalent instruction *)
+type lea = {
+    src: operand;
+    dest: mem;
+  }
+
 type inst =
   | Alloca of alloca
   | Move of move
@@ -101,6 +107,7 @@ type inst =
   | Leave          (* leave current stack frame *)
   | Label of label
   | Asm of string
+  | Lea of lea
   | Call of call
   | Binop of binop
   | Jmp of jmp
@@ -264,6 +271,9 @@ let print_insts (is: insts): unit =
             Printf.printf "\r%s:"
               (label2str l)
           | Asm s -> Printf.printf "%s" s
+          | Lea l ->
+            Printf.printf "lea %s, %s"
+              (mem2str l.dest) (op2str l.src)
           | Call c -> Printf.printf "call %s" c.f
           | Binop b ->
             let op = match b.op with
@@ -330,6 +340,8 @@ let visit_inst (iv: inst_visitor) (i: inst): inst =
   | Leave -> Leave
   | Label l -> Label l
   | Asm s -> Asm s
+  | Lea l -> Lea {dest = iv.visit_mem iv l.dest;
+                  src = iv.visit_opr iv l.src}
   | Call c -> Call c
   | Binop b -> Binop {b with
                       left = iv.visit_opr iv b.left;

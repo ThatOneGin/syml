@@ -6,8 +6,9 @@ main:
 	pushq	%rbp
 	movq	%rsp, %rbp
 	subq	$16, %rsp
+	leaq .LK0(%rip), %rax
 /* alloca %0 string */
-	movq	$.LK0, -8(%rbp)
+	movq	%rax, -8(%rbp)
 	movq %rax, %rdi	/* inline */
 	call puts	/* inline */
 	movl	$0, %eax

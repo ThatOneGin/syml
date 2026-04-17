@@ -186,6 +186,18 @@ let emit_call (s: Il.smod) (c: Il.call): unit =
   Il.smod_emit s (Printf.sprintf "\tcall\t%s" c.f)
 ;;
 
+let emit_lea (s: Il.smod) (l: Il.lea): unit =
+  let dest =
+    emit_mem l.dest Bits64
+  in
+  let src = 
+    match l.src with
+    | Mem ((Addr a), _) -> Printf.sprintf ".LK%d(%%rip)" a
+    | _ -> emit_operand l.src
+  in
+  Il.smod_emit s (Printf.sprintf "\tlea%c %s, %s" (getmnemonicsuffix Bits64) src dest)
+;;
+
 let fepilogue (s: Il.smod) (n: int64): unit =
   Il.smod_emit s "\tpushq\t%rbp\n";
   Il.smod_emit s "\tmovq\t%rsp, %rbp";
@@ -216,6 +228,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Jmp j -> emit_jmp s j
   | Nop -> Il.smod_emit s "/* nop */"
   | Alloca a -> Il.smod_emit s (Printf.sprintf "/* alloca %%%d %s */" a.dest (Dtypes.type2str a.ty))
+  | Lea l -> emit_lea s l
   in
   emit_newline s
 ;;

@@ -67,6 +67,13 @@ let cs_binop
   })
 ;;
 
+let cs_lea (cs: code_State) (src: operand) (dest: mem): unit =
+  cs_code cs (Lea {
+    src = src;
+    dest = dest;
+  })
+;;
+
 let cs_get_var (cs: code_State) (name: string): typed_mem =
   match Hashtbl.find_opt cs.vars name with
   | Some v -> v
@@ -114,10 +121,17 @@ let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand) (invert: bool): inst =
 
 (* -- translations -- *)
 
+let code_string  (cs: code_State) (s: string): operand =
+  let lea_src = Il.Mem(Il.Addr (smod_push_const cs.smod s), Bits64) in
+  let lea_dest = Ra.ctxt_alloc_vreg cs.ctxt in
+  cs_lea cs lea_src lea_dest;
+  Il.Mem(lea_dest, Bits64)
+;;
+
 let code_primexp (cs: code_State) (e: expr): operand =
   match e with
   | Number i -> Il.Imm (Int64.of_int i, Bits32)
-  | String s -> Il.Mem (Il.Addr (smod_push_const cs.smod s), Bits64)
+  | String s -> code_string cs s
   | Ident s -> Il.Mem (cs_get_var cs s)
   | _ -> Il.Imm (0L, Bits8)
 ;;
