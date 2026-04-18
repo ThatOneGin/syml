@@ -1,49 +1,39 @@
-(*
- * Syml:
- *  Compiler driver
+(* Syml:
+ *  main routines
  *)
 
 open Common
-open Lexer
-open Parser
-open Code
-open Il
-open Ast
-open X86
-open Type
 
-let dostring (name: string) (s: string): unit =
-  let ls: lex_State = lex_new name s in
-  let ps: parser_State = ps_new ls in
-  let ts: type_State = ts_new None in
-  let smod: smod = smod_create name Linux_X86_64 in
-  let cs: code_State = cs_new smod in
-  smod_open_out smod (name ^ ".s");
-  while ps.peek != TK_EOF do
-    let t: toplevel = parse_func ps in
-    check_toplevel ts t;
-    cs_toplevel cs t;
-    emit_insts smod (cs_finish cs);
-  done;
-  emit_constants smod;
-  smod_close_out smod
+let (target:target_arch) =
+  match Sys.os_type with
+  (* TODO: differentiate between Unix-like systems (free-bsd, macos and linux) *)
+  | "Unix" -> Common.Linux_X86_64
+  | _ -> Common.Linux_X86_64
 ;;
 
-let dofile (filename: string): unit =
-  let chunk_content: string =
-    let in_channel = open_in filename in
-    try
-      let content = really_input_string in_channel (in_channel_length in_channel) in
-      close_in in_channel;
-      content
-    with _ ->
-      close_in_noerr in_channel;
-      ""
-  in
-  dostring (Filename.remove_extension filename) chunk_content;
-  ()
+let (comp_opts:Driver.comp_opt) = {
+    log_il = false;
+    log_ra = false;
+    in_files = [];
+    target = target;
+  }
 ;;
+
+(* custom set flag *)
+let flag fl fn dsc =
+  (fl, Arg.Unit fn, dsc)
+;;
+
+let specs = [
+  flag "-lil" (fun _ -> comp_opts.log_il <- true) "log IR (TODO)";
+  flag "-lra" (fun _ -> comp_opts.log_ra <- true) "log register allocation phase (TODO)";
+];;
+
+let usage = "usage: syml [OPTIONS] [INPUTS]";;
+let anon file = comp_opts.in_files <- file::comp_opts.in_files;;
 
 let () =
-  dofile Sys.argv.(1)
+  Arg.parse specs anon usage;
+  let res = Driver.dofiles comp_opts comp_opts.in_files in
+  exit (if res then 0 else 1)
 ;;
