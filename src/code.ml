@@ -10,6 +10,7 @@ open Common
 
 (* state needed to convert AST to IL *)
 type code_State = {
+    opts: Comp_state.t;
     mutable ctxt: ctxt;
     smod: smod;
     mutable code: insts;
@@ -17,8 +18,9 @@ type code_State = {
     vars: (string, typed_mem) Hashtbl.t;
   }
 
-let cs_new (smod: smod): code_State = {
-    ctxt = ctxt_new smod;
+let cs_new (opts: Comp_state.t) (smod: smod): code_State = {
+    opts = opts;
+    ctxt = ctxt_new opts smod;
     smod = smod;
     code = [||];
     ty = Dtypes.Nil;
@@ -291,7 +293,8 @@ let cs_finish (cs: code_State): insts =
   let tmp: insts = regalloc cs.ctxt cs.code in
   cs.code <- [||];
   cs.ty <- Dtypes.Nil;
-  cs.ctxt <- ctxt_new cs.smod;
+  cs.ctxt <- ctxt_new cs.opts cs.smod;
   Hashtbl.clear cs.vars;
+  Comp_state.ifdo cs.opts.log_il (fun _ -> print_insts tmp);
   tmp
 ;;

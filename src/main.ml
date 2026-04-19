@@ -11,7 +11,7 @@ let (target:target_arch) =
   | _ -> Common.Linux_X86_64
 ;;
 
-let (comp_opts:Driver.comp_opt) = {
+let (opts:Comp_state.t) = {
     log_il = false;
     log_ra = false;
     in_files = [];
@@ -25,15 +25,15 @@ let flag fl fn dsc =
 ;;
 
 let specs = [
-  flag "-lil" (fun _ -> comp_opts.log_il <- true) "log IR (TODO)";
-  flag "-lra" (fun _ -> comp_opts.log_ra <- true) "log register allocation phase (TODO)";
+  flag "-lil" (fun _ -> opts.log_il <- true) "log IL codegen phase (DEBUG)";
+  flag "-lra" (fun _ -> opts.log_ra <- true) "log register allocation phase (DEBUG)";
 ];;
 
 let usage = "usage: syml [OPTIONS] [INPUTS]";;
-let anon file = comp_opts.in_files <- file::comp_opts.in_files;;
+let anon file = Comp_state.infile opts file;;
 
 let () =
   Arg.parse specs anon usage;
-  let res = Driver.dofiles comp_opts comp_opts.in_files in
+  let res = Driver.dofiles opts opts.in_files in
   exit (if res then 0 else 1)
 ;;

@@ -6,6 +6,7 @@ open Il
 open Common
 
 type ctxt = {
+    opts: Comp_state.t;
     smod: smod;
     nregs: int; (* number of registers *)
     mutable sp: int; (* stack pointer *)
@@ -13,8 +14,9 @@ type ctxt = {
     mutable vreg: int; (* first available virtual register *)
   }
 
-let ctxt_new (smod: smod): ctxt =
-  {smod = smod;
+let ctxt_new (opts: Comp_state.t) (smod: smod): ctxt =
+  {opts = opts;
+   smod = smod;
    nregs = (Il.get_arch_nregister smod.arch);
    sp = 0;
    reg = 0;
@@ -203,5 +205,12 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
     | _ -> 
       new_insts.(i) <- visit_inst iv v) is;
 
+  Comp_state.ifdo ctxt.opts.log_ra (fun _ ->
+    Printf.printf "--------------------------------\n";
+    Printf.printf "allocated registers: %d\n" ctxt.reg;
+    Printf.printf "allocated virtual registers: %d\n" ctxt.vreg;
+    Printf.printf "spills: %d\n" @@ Hashtbl.length vreg_to_spill;
+    Printf.printf "active registers: [%s]\n" @@ String.concat ", " (List.map string_of_int !active);
+    Printf.printf "inactive registers: [%s]\n" @@ String.concat ", " (List.map string_of_int !inactive));
   new_insts
 ;;
