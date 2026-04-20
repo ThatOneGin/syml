@@ -91,12 +91,34 @@ let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
     if is_numeric_type lt && is_numeric_type rt then I32
     else invalid ()
   | _ -> I32
+and check_call
+  (ts: type_State)
+  (caller: string)
+  (args: Ast.expr array): datatype =
+  let t = ts_query_symbol ts caller in
+  match t with
+  | Fptr ft ->
+    List.iteri (fun i a ->
+      let arg_ty = typeof_expr ts args.(i) in
+      if equal arg_ty a then ()
+      else
+        type_error
+          (Printf.sprintf "argument %d type mismatch (wanted %s, got %s)"
+            i (type2str a) (type2str arg_ty))
+    ) ft.args;
+    ft.ret
+  | _ ->
+    type_error
+      (Printf.sprintf
+        "invalid caller value (type %s, name %s)"
+        (type2str t) caller)
 and typeof_expr (ts: type_State) (e: expr): datatype =
   match e with
   | Number _ -> Int
   | String _ -> Str
   | Ident s -> ts_query_symbol ts s
   | Binop _ -> check_binop ts e
+  | Call (caller, args) -> check_call ts caller args
 
 let check_vard (ts: type_State) (v: vard): unit =
   let texp = typeof_expr ts v.value in
@@ -116,7 +138,7 @@ let check_return (ts: type_State) (r: expr): unit =
       (type2str ts.curr) (type2str texp))
   else ()
 
-let check_call (ts: type_State) (c: vcall): unit =
+let check_vcall (ts: type_State) (c: vcall): unit =
   let t = ts_query_symbol ts c.name in
   match t with
   | Fptr ft when ft.ret = Nil ->
@@ -140,7 +162,7 @@ let rec check_stat (ts: type_State) (s: stat): unit =
   | Var v -> check_vard ts v; ()
   | Return r -> check_return ts r; ()
   | Asm _ -> ()
-  | Voidcall c -> check_call ts c; ()
+  | Voidcall c -> check_vcall ts c; ()
   | Ifstat i -> check_if ts i; ()
   | While w -> check_while ts w; ()
   | Block b -> Array.iter (fun (s: stat) -> check_stat ts s) b.body; ()

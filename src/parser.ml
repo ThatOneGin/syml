@@ -21,9 +21,11 @@ let ps_new (ls: lex_State): parser_State = {
     depth = 0;
     ls = ls;
   }
+;;
 
 let ps_next (ps: parser_State): unit =
   ps.peek <- lex_next ps.ls; ()
+;;
 
 let ps_tk2str (ps: parser_State): string =
   match ps.peek with
@@ -58,27 +60,24 @@ let ps_tk2str (ps: parser_State): string =
   | TK_semicolon -> "<;>"
   | TK_comma -> "<,>"
   | TK_EOF -> "<EOF>"
+;;
 
-let ps_describe_token (ps: parser_State): string =
-  Printf.sprintf "token %s" (ps_tk2str ps)
-
-let ps_error (message: string) =
-  (Unexpected message)
+let ps_describe_token (ps: parser_State): string = Printf.sprintf "token %s" (ps_tk2str ps);;
+let ps_error (message: string) = (Unexpected message);;
 
 let ps_unexpected (ps: parser_State) (expected: string): 'a =
   raise (ps_error
     (Printf.sprintf "Unexpected %s, expected %s"
       (ps_describe_token ps) expected))
+;;
 
-let ps_enter (ps: parser_State) =
-  ps.depth <- ps.depth + 1; ()
-
-let ps_leave (ps: parser_State) =
-  ps.depth <- ps.depth - 1; ()
+let ps_enter (ps: parser_State) = ps.depth <- ps.depth + 1;;
+let ps_leave (ps: parser_State) = ps.depth <- ps.depth - 1;;
 
 let peek (ps: parser_State): token =
   let t: token = ps.peek in
   ps_next ps; t
+;;
 
 (*
  * This function should only be used
@@ -93,6 +92,7 @@ let ps_expect_sym
     ps_next ps; ()
   end else
     ps_unexpected ps message
+;;
 
 (* Expression parsing *)
 
@@ -100,6 +100,7 @@ let parse_name (ps: parser_State): Ast.expr =
   match ps.peek with
   | TK_identifier s -> Ast.Ident s
   | _ -> ps_unexpected ps "name"
+;;
 
 let parse_name_as_string (ps: parser_State): string =
   let name = parse_name ps in
@@ -107,16 +108,19 @@ let parse_name_as_string (ps: parser_State): string =
   match name with
   | Ast.Ident s -> s
   | _ -> "" (* unreachable *)
+;;
 
 let parse_number (ps: parser_State): Ast.expr =
   match ps.peek with
   | TK_number n -> Ast.Number (int_of_string n)
   | _ -> ps_unexpected ps "number"
+;;
 
 let parse_string (ps: parser_State): Ast.expr =
   match ps.peek with
   | TK_string s -> Ast.String s
   | _ -> ps_unexpected ps "string"
+;;
 
 let getoperator (ps: parser_State): Ast.operator =
   match ps.peek with
@@ -127,6 +131,7 @@ let getoperator (ps: parser_State): Ast.operator =
   | TK_equ -> Ast.OEQU
   | TK_neq -> Ast.ONEQ
   | _ -> ps_unexpected ps "binary operator"
+;;
 
 let rec parse_primaryexpr (ps: parser_State): Ast.expr =
   let expr: Ast.expr option =
@@ -134,15 +139,20 @@ let rec parse_primaryexpr (ps: parser_State): Ast.expr =
     | TK_number _ -> begin
       let e = Some (parse_number ps) in
       ps_next ps;
-      e end
-    | TK_identifier _ -> begin
+      e
+    end
+    | TK_identifier s -> begin
       let e = Some (parse_name ps) in
       ps_next ps;
-      e end
+      if ps.peek = TK_lparen
+      then Some(parse_call ps s)
+      else e
+    end
     | TK_string _ -> begin
       let e = Some (parse_string ps) in
       ps_next ps;
-      e end
+      e
+    end
     | TK_lparen ->
       ps_next ps;
       let paren_exp: Ast.expr = parse_expr ps in
@@ -178,6 +188,28 @@ and parse_addexpr (ps: parser_State): Ast.expr =
   done;
   !lhs
 and parse_expr (ps: parser_State) = parse_addexpr ps
+  (* arglist = '(' (expr ',' | expr) ')'*)
+and parse_arglist (ps: parser_State): Ast.expr array =
+  ps_expect_sym ps TK_lparen "Expected '(' to open argument list.";
+  let li = ref [||] in
+  let rec aux (): unit =
+    match ps.peek with
+    | TK_EOF | TK_rparen -> ()
+    | _ ->
+      li := Array.append !li [|parse_expr ps|];
+      if ps.peek = TK_comma
+      then begin
+        ps_next ps;
+        aux ()
+      end else ()
+  in
+  aux ();
+  ps_expect_sym ps TK_rparen "')' to close argument list";
+  !li
+and parse_call (ps: parser_State) (caller: string): Ast.expr =
+  let (arglist: Ast.expr array) = parse_arglist ps in
+  Ast.Call (caller, arglist)
+;;
 
 (* Statement parsing *)
 
@@ -192,6 +224,7 @@ let parse_type (ps: parser_State): Dtypes.datatype =
   | TK_i32 -> ps_next ps; Dtypes.I32
   | TK_i64 -> ps_next ps; Dtypes.I64
   | _ -> ps_unexpected ps "valid type specifier."
+;;
 
 (* var = 'let' ident '=' expr *)
 let parse_var (ps: parser_State): Ast.stat =
@@ -220,6 +253,7 @@ let parse_var (ps: parser_State): Ast.stat =
       } in
     Var vard
   | _ -> ps_unexpected ps "'let' token"
+;;
 
 (* return = 'return' expr *)
 let parse_return (ps: parser_State): Ast.stat =
@@ -229,6 +263,7 @@ let parse_return (ps: parser_State): Ast.stat =
     let e: Ast.expr = parse_expr ps in
     Return e
   | _ -> ps_unexpected ps "'return' token"
+;;
 
 (* asm = 'asm' string *)
 let parse_asm (ps: parser_State): Ast.stat =
@@ -236,25 +271,6 @@ let parse_asm (ps: parser_State): Ast.stat =
   match ps.peek with
   | TK_string s -> ps_next ps; Ast.Asm s;
   | _ -> ps_unexpected ps "string"
-
-(* arglist = '(' ( expr | expr ',' arglist ')' ) *)
-let parse_arglist (ps: parser_State): Ast.expr array =
-  ps_expect_sym ps TK_lparen "Expected '(' in function call.";
-  let li = ref [||] in
-  let rec aux (): unit =
-    match ps.peek with
-    | TK_EOF | TK_rparen -> ()
-    | _ ->
-      li := Array.append !li [|parse_expr ps|];
-      if ps.peek = TK_comma
-      then begin
-        ps_next ps;
-        aux ()
-      end else ()
-  in
-  aux ();
-  ps_expect_sym ps TK_rparen "')' to close argument list";
-  !li
 ;;
 
 (* voidcall = IDENTIFIER '(' arglist ')' *)
@@ -317,6 +333,7 @@ and parse_whilestat(ps: parser_State): Ast.stat =
     cond = e;
     blk = b;
   }
+;;
 
 (* param = TK_identifier ':' type  *)
 let parse_params (ps: parser_State): Ast.param array =
@@ -343,6 +360,7 @@ let parse_params (ps: parser_State): Ast.param array =
   aux ps params;
   ps_expect_sym ps TK_rparen "enclosing parenthesis in parameter list";
   !params
+;;
 
 (* func = 'def' '(' params ')' '{' stat list '}' *)
 let parse_func (ps: parser_State): Ast.toplevel =
@@ -365,3 +383,4 @@ let parse_func (ps: parser_State): Ast.toplevel =
       } in
     Ast.Func fdesc
   | _ -> ps_unexpected ps "'def' token"
+;;

@@ -8,8 +8,9 @@ type operator =
 type expr =
   | Number of int
   | String of string
-  | Binop of expr * operator * expr
+  | Binop of (expr * operator * expr)
   | Ident of string
+  | Call of (string * expr array)
 type stat =
   | Var of vard
   | Return of expr

@@ -76,6 +76,13 @@ let cs_lea (cs: code_State) (src: operand) (dest: mem): unit =
   })
 ;;
 
+let cs_call (cs: code_State) (caller: string) (args: operand array): unit =
+  cs_code cs (Call {
+    f = caller;
+    args = args;
+  })
+;;
+
 let cs_get_var (cs: code_State) (name: string): typed_mem =
   match Hashtbl.find_opt cs.vars name with
   | Some v -> v
@@ -151,7 +158,26 @@ let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
 and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop _ -> code_binopexp cs e return_val
+  | Call _ -> code_call cs e
   | _ -> code_primexp cs e
+
+and code_call (cs: code_State) (e: expr): operand =
+  match e with
+  | Call (caller, args) ->
+    let il_call_args = code_args cs args in
+    cs_call cs caller il_call_args;
+    Mem (Reg (Mreg 0), (type2bits cs.ty))
+  | _ -> unreachable "Codegen" "expected call expression";
+
+and code_args (* helper *)
+  (cs: code_State)
+  (a: Ast.expr array): operand array =
+  let args = ref [||] in
+  Array.iter
+    (fun e ->
+      args := Array.append !args [|code_exp cs e true|]
+    ) a;
+  !args
 ;;
 
 let code_ret (cs: code_State) (r: expr): unit =
@@ -173,18 +199,9 @@ let code_var (cs: code_State) (v: vard): unit =
   cs_move cs dest op
 ;;
 
-let code_args
-  (cs: code_State)
-  (a: Ast.expr array): operand array =
-  let args = ref [||] in
-  Array.iter
-    (fun e ->
-      args := Array.append !args [|code_exp cs e true|]
-    ) a;
-  !args
-;;
 
-let code_call (cs: code_State) (c: vcall): unit =
+
+let code_vcall (cs: code_State) (c: vcall): unit =
   let args = code_args cs c.args in
   cs_code cs (Il.Call {
     f = c.name;
@@ -197,7 +214,7 @@ let rec code_stat (cs: code_State) (s: stat): unit =
   | Return r -> code_ret cs r
   | Var v -> code_var cs v
   | Asm s -> cs_code cs (Il.Asm s)
-  | Voidcall c -> code_call cs c
+  | Voidcall c -> code_vcall cs c
   | Block b -> Array.iter (fun (s: stat): unit -> code_stat cs s) b.body
   | Ifstat i -> code_if cs i
   | While i -> code_while cs i
