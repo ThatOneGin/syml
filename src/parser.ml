@@ -287,6 +287,8 @@ let parse_input_list (ps: parser_State): Ast.expr array =
   !li
 ;;
 
+let (empty_input_list:Ast.expr array) = [||];;
+
 let parse_asm (ps: parser_State): Ast.stat =
   ps_expect_sym ps TK_asm "";
   ps_expect_sym ps TK_lparen "'(' token";
@@ -295,8 +297,15 @@ let parse_asm (ps: parser_State): Ast.stat =
     | TK_string s -> ps_next ps; s
     | _ -> ps_unexpected ps "string"
   in
-  ps_expect_sym ps TK_colon "Expected input list";
-  let inp_li = parse_input_list ps in
+  let inp_li =
+    match ps.peek with
+    | TK_colon ->
+      ps_next ps;
+      parse_input_list ps
+    | TK_rparen ->
+      empty_input_list
+    | _ -> ps_unexpected ps "')' token"
+  in
   ps_expect_sym ps TK_rparen "')' token";
   Ast.Asm {
     code = asm_string;
