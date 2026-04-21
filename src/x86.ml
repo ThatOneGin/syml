@@ -214,6 +214,21 @@ let fprologue (s: Il.smod): unit =
   Il.smod_emit s "\tret"
 ;;
 
+(* TODO: not use Str package to do this *)
+let emit_asm_re = Str.regexp "{\\([0-9]+\\)}";;
+let emit_asm (s: Il.smod) (a: Il.asm): unit =
+  let res =
+    Str.global_substitute emit_asm_re (fun s ->
+      let v = int_of_string (Str.matched_group 1 s) in
+      if v >= Array.length a.inputs
+      then Common.syml_errorf "invalid inline assembly index %d" v
+      else emit_operand (a.inputs.(v))
+    ) a.code
+  in
+  emit_indent s;
+  Il.smod_emit s res
+;;
+
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   let () =
   match i with
@@ -222,7 +237,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Enter x -> fepilogue s x
   | Leave -> fprologue s
   | Label l -> emit_label s l
-  | Asm str -> Il.smod_emit s (Printf.sprintf "\t%s\t/* inline */" str)
+  | Asm a -> emit_asm s a
   | Call c -> emit_call s c
   | Binop b -> emit_binop s b
   | Jmp j -> emit_jmp s j

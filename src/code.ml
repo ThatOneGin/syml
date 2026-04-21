@@ -83,6 +83,13 @@ let cs_call (cs: code_State) (caller: string) (args: operand array): unit =
   })
 ;;
 
+let cs_asm (cs: code_State) (code: string) (inputs: operand array): unit =
+  cs_code cs (Asm {
+    code = code;
+    inputs = inputs;
+  })
+;;
+
 let cs_get_var (cs: code_State) (name: string): typed_mem =
   match Hashtbl.find_opt cs.vars name with
   | Some v -> v
@@ -199,8 +206,6 @@ let code_var (cs: code_State) (v: vard): unit =
   cs_move cs dest op
 ;;
 
-
-
 let code_vcall (cs: code_State) (c: vcall): unit =
   let args = code_args cs c.args in
   cs_code cs (Il.Call {
@@ -209,11 +214,16 @@ let code_vcall (cs: code_State) (c: vcall): unit =
   })
 ;;
 
+let code_asm (cs: code_State) (a: asm): unit =
+  let inputs = code_args cs a.inputs in
+  cs_asm cs a.code inputs
+;;
+
 let rec code_stat (cs: code_State) (s: stat): unit =
   match s with
   | Return r -> code_ret cs r
   | Var v -> code_var cs v
-  | Asm s -> cs_code cs (Il.Asm s)
+  | Asm a -> code_asm cs a
   | Voidcall c -> code_vcall cs c
   | Block b -> Array.iter (fun (s: stat): unit -> code_stat cs s) b.body
   | Ifstat i -> code_if cs i

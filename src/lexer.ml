@@ -34,6 +34,7 @@ type token =
   | TK_neq
   | TK_lparen | TK_rparen
   | TK_lbrace | TK_rbrace
+  | TK_lbracket | TK_rbracket
   | TK_equals | TK_colon
   | TK_semicolon
   | TK_comma
@@ -160,6 +161,8 @@ let lex_read_char (ls: lex_State): token =
   | ')' -> lex_advance ls; TK_rparen
   | '{' -> lex_advance ls; TK_lbrace
   | '}' -> lex_advance ls; TK_rbrace
+  | '[' -> lex_advance ls; TK_lbracket
+  | ']' -> lex_advance ls; TK_rbracket
   | '=' | '!' -> read_double_op ls
   | ':' -> lex_advance ls; TK_colon
   | '+' -> lex_advance ls; TK_plus

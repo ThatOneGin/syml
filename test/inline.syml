@@ -1,6 +1,10 @@
-def main() {
-  let x: str = "Hello, world"
-  asm "movq %rax, %rdi"
-  asm "call puts"
-  return 0
+def add(x: i32, y: i32): i32 {
+  return x + y
+}
+
+def main(): nil {
+  let x: i32 = 32
+  let y: i32 = 43
+  let z: i32 = add(x, y)
+  asm("movl {0}, {1}" : [z, y])
 }

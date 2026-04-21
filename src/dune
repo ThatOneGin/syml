@@ -1,3 +1,4 @@
 (executable
  (public_name syml)
- (name main))
+ (name main)
+ (libraries str))

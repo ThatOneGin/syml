@@ -157,11 +157,15 @@ let check_vcall (ts: type_State) (c: vcall): unit =
       (type2str t)
       c.name)
 
+let check_asm (ts: type_State) (a: asm): unit =
+  Array.iter (fun v -> Common.drop @@ typeof_expr ts v) a.inputs
+;;
+
 let rec check_stat (ts: type_State) (s: stat): unit =
   match s with
   | Var v -> check_vard ts v; ()
   | Return r -> check_return ts r; ()
-  | Asm _ -> ()
+  | Asm a -> check_asm ts a; ()
   | Voidcall c -> check_vcall ts c; ()
   | Ifstat i -> check_if ts i; ()
   | While w -> check_while ts w; ()

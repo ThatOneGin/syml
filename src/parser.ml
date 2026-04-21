@@ -55,6 +55,8 @@ let ps_tk2str (ps: parser_State): string =
   | TK_rparen -> "<)>"
   | TK_lbrace -> "<{>"
   | TK_rbrace -> "<}>"
+  | TK_lbracket -> "<[>"
+  | TK_rbracket -> "<]>"
   | TK_equals -> "<=>"
   | TK_colon -> "<:>"
   | TK_semicolon -> "<;>"
@@ -266,11 +268,40 @@ let parse_return (ps: parser_State): Ast.stat =
 ;;
 
 (* asm = 'asm' string *)
+let parse_input_list (ps: parser_State): Ast.expr array =
+  ps_expect_sym ps TK_lbracket "Expected '[' to open input list.";
+  let li = ref [||] in
+  let rec aux (): unit =
+    match ps.peek with
+    | TK_EOF | TK_rbracket -> ()
+    | _ ->
+      li := Array.append !li [|parse_expr ps|];
+      if ps.peek = TK_comma
+      then begin
+        ps_next ps;
+        aux ()
+      end else ()
+  in
+  aux ();
+  ps_expect_sym ps TK_rbracket "']' to close input list";
+  !li
+;;
+
 let parse_asm (ps: parser_State): Ast.stat =
   ps_expect_sym ps TK_asm "";
-  match ps.peek with
-  | TK_string s -> ps_next ps; Ast.Asm s;
-  | _ -> ps_unexpected ps "string"
+  ps_expect_sym ps TK_lparen "'(' token";
+  let asm_string =
+    match ps.peek with
+    | TK_string s -> ps_next ps; s
+    | _ -> ps_unexpected ps "string"
+  in
+  ps_expect_sym ps TK_colon "Expected input list";
+  let inp_li = parse_input_list ps in
+  ps_expect_sym ps TK_rparen "')' token";
+  Ast.Asm {
+    code = asm_string;
+    inputs = inp_li
+  }
 ;;
 
 (* voidcall = IDENTIFIER '(' arglist ')' *)

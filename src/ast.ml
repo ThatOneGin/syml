@@ -14,7 +14,7 @@ type expr =
 type stat =
   | Var of vard
   | Return of expr
-  | Asm of string
+  | Asm of asm
   | Voidcall of vcall
   | Block of block
   | Ifstat of ifstat
@@ -51,6 +51,10 @@ and ifstat = {
 and whilestat = {
     cond: expr;
     blk: block;
+  }
+and asm = {
+    code: string;
+    inputs: expr array;
   }
 
 let block_append (b: block) (s: stat): unit =

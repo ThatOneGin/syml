@@ -99,6 +99,11 @@ type lea = {
     dest: mem;
   }
 
+type asm = {
+    code: string;
+    inputs: operand array;
+  }
+
 type inst =
   | Alloca of alloca
   | Move of move
@@ -106,7 +111,7 @@ type inst =
   | Enter of int64 (* enter next stack frame *)
   | Leave          (* leave current stack frame *)
   | Label of label
-  | Asm of string
+  | Asm of asm
   | Lea of lea
   | Call of call
   | Binop of binop
@@ -270,7 +275,7 @@ let print_insts (is: insts): unit =
           | Label l ->
             Printf.printf "\r%s:"
               (label2str l)
-          | Asm s -> Printf.printf "%s" s
+          | Asm a -> Printf.printf "%s" a.code
           | Lea l ->
             Printf.printf "lea %s, %s"
               (mem2str l.dest) (op2str l.src)
@@ -339,10 +344,12 @@ let visit_inst (iv: inst_visitor) (i: inst): inst =
   | Enter x -> Enter x
   | Leave -> Leave
   | Label l -> Label l
-  | Asm s -> Asm s
+  | Asm a -> Asm {a with
+                  inputs = Array.map (fun x -> iv.visit_opr iv x) a.inputs;}
   | Lea l -> Lea {dest = iv.visit_mem iv l.dest;
                   src = iv.visit_opr iv l.src}
-  | Call c -> Call c
+  | Call c -> Call {c with
+                    args = Array.map (fun x -> iv.visit_opr iv x) c.args;}
   | Binop b -> Binop {b with
                       left = iv.visit_opr iv b.left;
                       right = iv.visit_opr iv b.right;}
