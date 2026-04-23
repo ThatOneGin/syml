@@ -22,6 +22,7 @@ type mem =
   | Addr of int (* constant *)
   | Reg of reg
   | Stack of stack
+  | Name of string (* if it is typed_mem, the bits type does not matter *)
 
 type typed_imm = (imm * bits)
 type typed_mem = (mem * bits)
@@ -69,7 +70,7 @@ type ret = {
  * but for simplicity it will be a string for now
  *)
 type call = {
-    f: string;
+    f: operand;
     args: operand array;
   }
 
@@ -232,6 +233,7 @@ let mem2str (m: mem): string =
   | Addr a -> Printf.sprintf "LK[%d]" a
   | Reg r -> reg2str r
   | Stack s -> Printf.sprintf "[sp:%d]" s
+  | Name s -> s
 ;;
 
 let op2str (o: operand): string =
@@ -279,7 +281,7 @@ let print_insts (is: insts): unit =
           | Lea l ->
             Printf.printf "lea %s, %s"
               (mem2str l.dest) (op2str l.src)
-          | Call c -> Printf.printf "call %s" c.f
+          | Call c -> Printf.printf "call %s" @@ op2str c.f
           | Binop b ->
             let op = match b.op with
               | Ast.OADD -> "add"
@@ -348,7 +350,7 @@ let visit_inst (iv: inst_visitor) (i: inst): inst =
                   inputs = Array.map (fun x -> iv.visit_opr iv x) a.inputs;}
   | Lea l -> Lea {dest = iv.visit_mem iv l.dest;
                   src = iv.visit_opr iv l.src}
-  | Call c -> Call {c with
+  | Call c -> Call {f = iv.visit_opr iv c.f;
                     args = Array.map (fun x -> iv.visit_opr iv x) c.args;}
   | Binop b -> Binop {b with
                       left = iv.visit_opr iv b.left;

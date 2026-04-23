@@ -76,7 +76,7 @@ let cs_lea (cs: code_State) (src: operand) (dest: mem): unit =
   })
 ;;
 
-let cs_call (cs: code_State) (caller: string) (args: operand array): unit =
+let cs_call (cs: code_State) (caller: operand) (args: operand array): unit =
   cs_code cs (Call {
     f = caller;
     args = args;
@@ -93,7 +93,7 @@ let cs_asm (cs: code_State) (code: string) (inputs: operand array): unit =
 let cs_get_var (cs: code_State) (name: string): typed_mem =
   match Hashtbl.find_opt cs.vars name with
   | Some v -> v
-  | _ -> syml_errorf "Unknown variable %s" name
+  | _ -> (Name name, Bits64)
 ;;
 
 let cs_reg_var (cs: code_State) (name: string) (loc: typed_mem): unit =
@@ -171,8 +171,9 @@ and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
 and code_call (cs: code_State) (e: expr): operand =
   match e with
   | Call (caller, args) ->
+    let il_call_caller = code_exp cs caller true in
     let il_call_args = code_args cs args in
-    cs_call cs caller il_call_args;
+    cs_call cs il_call_caller il_call_args;
     Mem (Reg (Mreg 0), (type2bits cs.ty))
   | _ -> unreachable "Codegen" "expected call expression";
 
@@ -209,7 +210,7 @@ let code_var (cs: code_State) (v: vard): unit =
 let code_vcall (cs: code_State) (c: vcall): unit =
   let args = code_args cs c.args in
   cs_code cs (Il.Call {
-    f = c.name;
+    f = code_exp cs c.func true;
     args = args;
   })
 ;;

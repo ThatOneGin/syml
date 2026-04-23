@@ -10,7 +10,7 @@ type expr =
   | String of string
   | Binop of (expr * operator * expr)
   | Ident of string
-  | Call of (string * expr array)
+  | Call of (expr * expr array)
 type stat =
   | Var of vard
   | Return of expr
@@ -41,7 +41,7 @@ and vard = {
     value: expr;
   }
 and vcall = {
-    name: string; (* for now it's only a string *)
+    func: expr;
     args: expr array;
   }
 and ifstat = {

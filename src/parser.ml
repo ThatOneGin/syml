@@ -135,43 +135,54 @@ let getoperator (ps: parser_State): Ast.operator =
   | _ -> ps_unexpected ps "binary operator"
 ;;
 
+(* simpleexpr = INT | IDENTIFIER | STRING *)
+let parse_simpleexpr (ps: parser_State): Ast.expr =
+  match ps.peek with
+  | TK_number _ -> begin
+    let e = parse_number ps in
+    ps_next ps;
+    e
+  end
+  | TK_identifier _ -> begin
+    let e = parse_name ps in
+    ps_next ps;
+    e
+  end
+  | TK_string _ -> begin
+    let e = parse_string ps in
+    ps_next ps;
+    e
+  end
+  | _ -> ps_unexpected ps "expression"
+(* primaryexpr = simpleexpr | '(' expr ')' *)
 let rec parse_primaryexpr (ps: parser_State): Ast.expr =
-  let expr: Ast.expr option =
+  match ps.peek with
+  | TK_lparen ->
+    ps_next ps;
+    let paren_exp: Ast.expr = parse_expr ps in
+    ps_expect_sym ps TK_rparen
+      "')' to close grouping expression";
+    paren_exp
+  | _ -> parse_simpleexpr ps
+(* suffixedexpr = primaryexpr | callexpr *)
+and parse_suffixedexpr (ps: parser_State): Ast.expr =
+  let e: Ast.expr ref = ref (parse_primaryexpr ps) in
+  let rec aux _ =
     match ps.peek with
-    | TK_number _ -> begin
-      let e = Some (parse_number ps) in
-      ps_next ps;
-      e
-    end
-    | TK_identifier s -> begin
-      let e = Some (parse_name ps) in
-      ps_next ps;
-      if ps.peek = TK_lparen
-      then Some(parse_call ps s)
-      else e
-    end
-    | TK_string _ -> begin
-      let e = Some (parse_string ps) in
-      ps_next ps;
-      e
-    end
     | TK_lparen ->
-      ps_next ps;
-      let paren_exp: Ast.expr = parse_expr ps in
-      ps_expect_sym ps TK_rparen
-        "')' to close grouping expression";
-      Some paren_exp
-    | _ -> None
+      let tmp_e = parse_call ps !e in
+      e := tmp_e;
+      aux ()
+    | _ -> ()
   in
-  match expr with
-  | Some e -> e
-  | None -> ps_unexpected ps "expression"
+  aux ();
+  !e
 and parse_mulexpr (ps: parser_State): Ast.expr =
-  let lhs: Ast.expr ref = ref (parse_primaryexpr ps) in
+  let lhs: Ast.expr ref = ref (parse_suffixedexpr ps) in
   while ps.peek = TK_div || ps.peek = TK_mul do
     let op: Ast.operator = getoperator ps in
     ps_next ps;
-    let rhs: Ast.expr = parse_primaryexpr ps in
+    let rhs: Ast.expr = parse_suffixedexpr ps in
     lhs := Ast.Binop (!lhs, op, rhs);
   done;
   !lhs
@@ -189,6 +200,7 @@ and parse_addexpr (ps: parser_State): Ast.expr =
     lhs := Ast.Binop (!lhs, op, rhs);
   done;
   !lhs
+  (* expr = addexpr *)
 and parse_expr (ps: parser_State) = parse_addexpr ps
   (* arglist = '(' (expr ',' | expr) ')'*)
 and parse_arglist (ps: parser_State): Ast.expr array =
@@ -208,7 +220,8 @@ and parse_arglist (ps: parser_State): Ast.expr array =
   aux ();
   ps_expect_sym ps TK_rparen "')' to close argument list";
   !li
-and parse_call (ps: parser_State) (caller: string): Ast.expr =
+(* callexpr = primaryexpr '(' arglist ')' *)
+and parse_call (ps: parser_State) (caller: Ast.expr): Ast.expr =
   let (arglist: Ast.expr array) = parse_arglist ps in
   Ast.Call (caller, arglist)
 ;;
@@ -275,7 +288,7 @@ let parse_input_list (ps: parser_State): Ast.expr array =
     match ps.peek with
     | TK_EOF | TK_rbracket -> ()
     | _ ->
-      li := Array.append !li [|parse_expr ps|];
+      li := Array.append !li [|parse_simpleexpr ps|];
       if ps.peek = TK_comma
       then begin
         ps_next ps;
@@ -315,12 +328,12 @@ let parse_asm (ps: parser_State): Ast.stat =
 
 (* voidcall = IDENTIFIER '(' arglist ')' *)
 let parse_voidcall (ps: parser_State): Ast.stat =
+  let func = parse_primaryexpr ps in
   match ps.peek with
-  | TK_identifier name ->
-    ps_next ps;
+  | TK_lparen ->
     let args = parse_arglist ps in
     Ast.Voidcall {
-      name = name;
+      func = func;
       args = args;
     }
   | _ -> ps_unexpected ps "statement"

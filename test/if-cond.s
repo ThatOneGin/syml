@@ -1,6 +1,6 @@
 .text
 .globl	main
-.type main, @function
+.type	main,	@function
 main:
 .LC0:
 	pushq	%rbp

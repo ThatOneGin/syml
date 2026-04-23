@@ -59,6 +59,7 @@ let emit_mem (m: Il.mem) (ty: Il.bits): string =
   | Addr a -> Printf.sprintf "$.LK%d" a
   | Reg r -> "%" ^ getreg ty r
   | Stack s -> Printf.sprintf "%d(%%rbp)" s
+  | Name s -> s
 ;;
 
 let emit_operand (o: Il.operand): string =
@@ -158,8 +159,8 @@ let emit_fsize (s: Il.smod) (name: string): unit =
 
 let emit_ltype (s: Il.smod) (name: string) (l: Il.ltype): unit =
   match l with
-  | Lfunction -> Il.smod_emit s (Printf.sprintf ".type %s, @function\n" name)
-  | Lobject -> Il.smod_emit s (Printf.sprintf ".type %s, @object\n" name)
+  | Lfunction -> Il.smod_emit s (Printf.sprintf ".type\t%s,\t@function\n" name)
+  | Lobject -> Il.smod_emit s (Printf.sprintf ".type\t%s,\t@object\n" name)
   | Lnone -> ()
 ;;
 
@@ -183,7 +184,7 @@ let emit_args (s: Il.smod) (a: Il.operand array): unit =
 
 let emit_call (s: Il.smod) (c: Il.call): unit =
   emit_args s c.args;
-  Il.smod_emit s (Printf.sprintf "\tcall\t%s" c.f)
+  Il.smod_emit s (Printf.sprintf "\tcall\t%s" @@ emit_operand c.f)
 ;;
 
 let emit_lea (s: Il.smod) (l: Il.lea): unit =

@@ -17,11 +17,13 @@ let ts_new (parent: type_State option): type_State = {
     variables = Hashtbl.create 32;
     curr = Nil;
   }
+;;
 
-let ts_enter (ts: type_State): type_State = ts_new (Some ts)
+let ts_enter (ts: type_State): type_State = ts_new (Some ts);;
 
 let ts_reg_symbol (ts: type_State) (name: string) (ty: datatype): unit =
   Hashtbl.replace ts.variables name ty; ()
+;;
 
 let rec ts_query_symbol (ts: type_State) (name: string): datatype =
   match Hashtbl.find_opt ts.variables name with
@@ -34,21 +36,25 @@ let rec ts_query_symbol (ts: type_State) (name: string): datatype =
         | None -> Common.unreachable
           "type-checking"
           "no parent type state") name
+;;
 
 let is_numeric_type (ty: datatype): bool =
   match ty with
   | I64 | I32 | I16 | I8 | Int -> true
   | _ -> false
+;;
 
 let is_pointer_type (ty: datatype): bool =
   match ty with
   | Ptr _ -> true
   | _ -> false
+;;
 
 let pointed_type (ty: datatype): datatype option =
   match ty with
   | Ptr t -> Some t
   | _ -> None
+;;
 
 let equal (ty1: datatype) (ty2: datatype): bool =
   if (is_numeric_type ty1) && (is_numeric_type ty2) then true
@@ -56,6 +62,14 @@ let equal (ty1: datatype) (ty2: datatype): bool =
     match (ty1, ty2) with
     | (Ptr t1, Ptr t2) -> t1 = t2
     | _ -> ty1 = ty2
+;;
+
+(* check if e compiles to a name *)
+let compile_to_name (e: Ast.expr): string option =
+  match e with
+  | Ident s -> Some s
+  | _ -> None
+;;
 
 let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
   let (lhs, op, rhs) = match b with
@@ -93,9 +107,14 @@ let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
   | _ -> I32
 and check_call
   (ts: type_State)
-  (caller: string)
+  (caller: Ast.expr)
   (args: Ast.expr array): datatype =
-  let t = ts_query_symbol ts caller in
+  let name =
+    match compile_to_name caller with
+    | Some s -> s
+    | None -> type_error "invalid function caller"
+  in
+  let t = ts_query_symbol ts name in
   match t with
   | Fptr ft ->
     List.iteri (fun i a ->
@@ -111,7 +130,7 @@ and check_call
     type_error
       (Printf.sprintf
         "invalid caller value (type %s, name %s)"
-        (type2str t) caller)
+        (type2str t) name)
 and typeof_expr (ts: type_State) (e: expr): datatype =
   match e with
   | Number _ -> Int
@@ -119,6 +138,7 @@ and typeof_expr (ts: type_State) (e: expr): datatype =
   | Ident s -> ts_query_symbol ts s
   | Binop _ -> check_binop ts e
   | Call (caller, args) -> check_call ts caller args
+;;
 
 let check_vard (ts: type_State) (v: vard): unit =
   let texp = typeof_expr ts v.value in
@@ -128,6 +148,7 @@ let check_vard (ts: type_State) (v: vard): unit =
       "variable type mismatch (%s != %s)"
       (type2str v.ty) (type2str texp))
   else ts_reg_symbol ts v.name v.ty; ()
+;;
 
 let check_return (ts: type_State) (r: expr): unit =
   let texp = typeof_expr ts r in
@@ -137,9 +158,15 @@ let check_return (ts: type_State) (r: expr): unit =
       "function return type mismatch (%s != %s)"
       (type2str ts.curr) (type2str texp))
   else ()
+;;
 
 let check_vcall (ts: type_State) (c: vcall): unit =
-  let t = ts_query_symbol ts c.name in
+  let name =
+    match compile_to_name c.func with
+    | Some s -> s
+    | None -> type_error "invalid function caller"
+  in
+  let t = ts_query_symbol ts name in
   match t with
   | Fptr ft when ft.ret = Nil ->
      List.iteri (fun i a ->
@@ -154,8 +181,8 @@ let check_vcall (ts: type_State) (c: vcall): unit =
     type_error
     (Printf.sprintf
       "A call statement must return nil, but instead returns %s (function '%s')."
-      (type2str t)
-      c.name)
+      (type2str t) name)
+;;
 
 let check_asm (ts: type_State) (a: asm): unit =
   Array.iter (fun v -> Common.drop @@ typeof_expr ts v) a.inputs
@@ -176,21 +203,25 @@ and check_if (ts: type_State) (i: ifstat): unit =
 and check_while (ts: type_State) (w: whilestat): unit =
   let _ = typeof_expr ts w.cond in
   Array.iter (fun (s: stat) -> check_stat ts s) w.blk.body
+;;
 
 let reg_params (ts: type_State) (t: Ast.param array): unit =
   let f = (fun (p: Ast.param) ->
     ts_reg_symbol ts p.name p.ty;
   ) in
   Array.iter f t
+;;
 
 let check_func (ts: type_State) (f: funct): unit =
   ts.curr <- f.ty;
   reg_params ts f.params;
   Array.iter (fun (s: stat) -> check_stat ts s) f.blk.body
+;;
 
 let types_from_paramlist (ps: param array): datatype list =
   let nparams = Array.length ps in
   List.init nparams (fun i -> ps.(i).ty)
+;;
 
 let check_toplevel (ts: type_State) (f: toplevel): unit =
   match f with
@@ -203,3 +234,4 @@ let check_toplevel (ts: type_State) (f: toplevel): unit =
     ts_reg_symbol ts ft.name (Fptr func_type);
     check_func func_scope ft
   | _ -> ()
+;;

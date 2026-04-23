@@ -1,6 +1,6 @@
 .text
 .globl	add
-.type add, @function
+.type	add,	@function
 add:
 .LC0:
 	pushq	%rbp
@@ -18,7 +18,7 @@ add:
 .size add, .-add
 .text
 .globl	main
-.type main, @function
+.type	main,	@function
 main:
 .LC2:
 	pushq	%rbp
