@@ -16,6 +16,7 @@ type code_State = {
     mutable code: insts;
     mutable ty: Dtypes.datatype;
     vars: (string, typed_mem) Hashtbl.t;
+    glob: (string, typed_mem) Hashtbl.t;
   }
 
 let cs_new (opts: Comp_state.t) (smod: smod): code_State = {
@@ -25,6 +26,7 @@ let cs_new (opts: Comp_state.t) (smod: smod): code_State = {
     code = [||];
     ty = Dtypes.Nil;
     vars = Hashtbl.create 32;
+    glob = Hashtbl.create 32;
   }
 ;;
 
@@ -90,14 +92,30 @@ let cs_asm (cs: code_State) (code: string) (inputs: operand array): unit =
   })
 ;;
 
+let cs_get_glob (cs: code_State) (name: string): typed_mem =
+  match Hashtbl.find_opt cs.glob name with
+  | Some v -> v
+  | None -> syml_errorf "Unknown variable '%s'" name
+;;
+
 let cs_get_var (cs: code_State) (name: string): typed_mem =
   match Hashtbl.find_opt cs.vars name with
   | Some v -> v
-  | _ -> (Name name, Bits64)
+  | None -> cs_get_glob cs name
 ;;
 
-let cs_reg_var (cs: code_State) (name: string) (loc: typed_mem): unit =
+let cs_reg_var
+  (cs: code_State)
+  (name: string)
+  (loc: typed_mem): unit =
   Hashtbl.replace cs.vars name loc
+;;
+
+let cs_reg_glob
+  (cs: code_State)
+  (name: string)
+  (loc: typed_mem): unit =
+  Hashtbl.replace cs.glob name loc
 ;;
 
 let code_enter (cs: code_State): unit = cs_code cs (Enter (-1L)); ();;
@@ -138,29 +156,29 @@ let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand) (invert: bool): inst =
 (* -- translations -- *)
 
 let code_string  (cs: code_State) (s: string): operand =
-  let lea_src = Il.Mem(Il.Addr (smod_push_const cs.smod s), Bits64) in
+  let lea_src = Il.Mem(Il.Addr (smod_push_const cs.smod s), str_t) in
   let lea_dest = Ra.ctxt_alloc_vreg cs.ctxt in
   cs_lea cs lea_src lea_dest;
-  Il.Mem(lea_dest, Bits64)
+  Il.Mem(lea_dest, str_t)
 ;;
 
 let code_primexp (cs: code_State) (e: expr): operand =
   match e with
-  | Number i -> Il.Imm (Int64.of_int i, Bits32)
+  | Number i -> Il.Imm (Int64.of_int i, i32_t)
   | String s -> code_string cs s
   | Ident s -> Il.Mem (cs_get_var cs s)
-  | _ -> Il.Imm (0L, Bits8)
+  | _ -> Il.Imm (0L, i8_t)
 ;;
 
 (* compile a binary expressino *)
 let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop (l, o, r) ->
-    let ty_bits = type2bits cs.ty in
+    let ty = ref_of_type cs.ty in
     let dst = ctxt_alloc_vreg cs.ctxt in
     cs_move cs dst @@ code_exp cs l true; (* move the left hand *)
-    cs_binop cs (Il.Mem (dst, ty_bits)) (code_exp cs r true) o cs.ty return_val;
-    Il.Mem (dst, ty_bits)
+    cs_binop cs (Il.Mem (dst, ty)) (code_exp cs r true) o cs.ty return_val;
+    Il.Mem (dst, ty)
   | _ -> unreachable "Codegen" "expected binary expression";
 and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
@@ -174,7 +192,7 @@ and code_call (cs: code_State) (e: expr): operand =
     let il_call_caller = code_exp cs caller true in
     let il_call_args = code_args cs args in
     cs_call cs il_call_caller il_call_args;
-    Mem (Reg (Mreg 0), (type2bits cs.ty))
+    Mem (Reg (Mreg 0), ref_of_type cs.ty)
   | _ -> unreachable "Codegen" "expected call expression";
 
 and code_args (* helper *)
@@ -196,13 +214,13 @@ let code_ret (cs: code_State) (r: expr): unit =
 ;;
 
 let code_var (cs: code_State) (v: vard): unit =
-  let bits_ty = type2bits v.ty in
+  let ty = ref_of_type v.ty in
   let dest = Ra.ctxt_alloc_vreg cs.ctxt in
   let old_cs_ty = cs.ty in
   cs.ty <- v.ty; (* for code_binopexp *)
   let op = code_exp cs v.value true in
   cs.ty <- old_cs_ty; (* restore helper *)
-  cs_reg_var cs v.name (dest, bits_ty);
+  cs_reg_var cs v.name (dest, ty);
   cs_alloca cs v.ty (vreg_of_mem dest);
   cs_move cs dest op
 ;;
@@ -252,9 +270,9 @@ let code_param
   (cs: code_State)
   (p: param)
   (i: int): unit =
-  let ty_bits = type2bits p.ty in
+  let ty = ref_of_type p.ty in
   let dest = Stack (16 + (8 * i)) in
-  cs_reg_var cs p.name @@ (dest, ty_bits)
+  cs_reg_var cs p.name @@ (dest, ty)
 ;;
 
 (* move function arguments to stack variables *)
@@ -263,7 +281,8 @@ let code_func_params (cs: code_State) (f: funct): unit =
     code_param cs p i) f.params
 ;;
 
-let code_func (cs: code_State) (f: funct): unit = 
+let code_func (cs: code_State) (f: funct): unit =
+  cs_reg_glob cs f.name (Name f.name, fptr_t);
   code_namedlabel cs f.name true Lfunction; 
   code_unnamedlabel cs;
   code_enter cs;
@@ -305,9 +324,9 @@ let patch_enter (cs: code_State): unit =
     match i with
     | Enter _ ->
       let _n: int ref = ref 0 in
-      Hashtbl.iter (fun _ v -> 
-        let (_, b) = v in
-        _n := bits2size b) cs.vars;
+      Hashtbl.iter (fun _ (v: typed_mem) -> 
+        let (_, ty) = v in
+        _n := size_of_ref_ty ty) cs.vars;
       let n = align_vars cs !_n in
       cs.code.(k) <- Enter n
     | _ -> ()

@@ -9,6 +9,13 @@ type bits =
   | Bits32
   | Bits64
 
+(* type of a reference (operand, immediate) *)
+type ref_ty =
+  | Val_ty of bits
+  | Ptr_ty of ref_ty
+  | Func_ty (* we will probably want this to be typed later *)
+  | Nil_ty
+
 type vreg = int
 type mreg = int
 type stack = int
@@ -24,8 +31,8 @@ type mem =
   | Stack of stack
   | Name of string (* if it is typed_mem, the bits type does not matter *)
 
-type typed_imm = (imm * bits)
-type typed_mem = (mem * bits)
+type typed_imm = (imm * ref_ty)
+type typed_mem = (mem * ref_ty)
 
 (* operand = mem | immediate *)
 type operand =
@@ -192,6 +199,30 @@ let smod_push_const (s: smod) (k: string): int =
     len
 ;;
 
+(* pre-made types *)
+let (int_t:ref_ty) = Val_ty Bits32;;
+let (i8_t:ref_ty) = Val_ty Bits8;;
+let (i16_t:ref_ty) = Val_ty Bits16;;
+let (i32_t:ref_ty) = Val_ty Bits32;;
+let (i64_t:ref_ty) = Val_ty Bits64;;
+let (str_t:ref_ty) = Ptr_ty (Val_ty Bits64);;
+let (nil_t:ref_ty) = Nil_ty;;
+let (fptr_t:ref_ty) = Func_ty;;
+let ptr_t (t:ref_ty): ref_ty = Ptr_ty t
+
+let rec ref_of_type (ty: Dtypes.datatype): ref_ty =
+  match ty with
+  | Int -> int_t
+  | I8 -> i8_t
+  | I16 -> i16_t
+  | I32 -> i32_t
+  | I64 -> i64_t
+  | Ptr t -> ptr_t @@ ref_of_type t
+  | Str -> str_t
+  | Nil -> nil_t
+  | Fptr _ -> fptr_t
+;;
+
 let type2bits (ty: Dtypes.datatype): bits =
   match ty with
   | I32 | Int -> Bits32
@@ -208,10 +239,23 @@ let bits2size (b: bits): int =
   | Bits64 -> 8
 ;;
 
-let get_operand_type (o: operand): bits =
+let bits_of_ref_ty (rt: ref_ty): bits =
+  match rt with
+  | Val_ty b -> b
+  | Nil_ty -> Bits8
+  | Func_ty -> Bits64
+  | Ptr_ty _ -> Bits64
+
+let size_of_ref_ty (rt: ref_ty): int =
+  match rt with
+  | Nil_ty -> 0
+  | Val_ty b -> bits2size b
+  | _ -> 8
+
+let ref_of_operand (o: operand): ref_ty =
   match o with
-  | Mem (_, b)
-  | Imm (_, b) -> b
+  | Mem (_, rt) -> rt
+  | Imm (_, rt) -> rt
 ;;
 
 let vreg_of_mem (m: mem): vreg =

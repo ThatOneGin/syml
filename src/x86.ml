@@ -64,7 +64,7 @@ let emit_mem (m: Il.mem) (ty: Il.bits): string =
 
 let emit_operand (o: Il.operand): string =
   match o with
-  | Mem (m, t) -> emit_mem m t
+  | Mem (m, t) -> emit_mem m @@ Il.bits_of_ref_ty t
   | Imm (i, _) -> emit_imm i
 ;;
 
@@ -128,9 +128,9 @@ let emit_jmp (s: Il.smod) (j: Il.jmp): unit =
 ;;
 
 let emit_move (s: Il.smod) (m: Il.move): unit =
-  let bits = Il.get_operand_type m.src in
+  let bits = Il.bits_of_ref_ty @@ Il.ref_of_operand m.src in
   Il.smod_emit s
-    (Printf.sprintf "\tmov%c\t%s, %s"
+    (Printf.sprintf "\tmov%c\t%s,\t%s"
       (getmnemonicsuffix bits)
       (emit_operand m.src)
       (emit_mem m.dest bits))
@@ -145,7 +145,7 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
       Il.smod_emit s "\tnop\n"
     else begin 
       Il.smod_emit s
-        (Printf.sprintf "\tmov%c\t%s, %s\n"
+        (Printf.sprintf "\tmov%c\t%s,\t%s\n"
           (getmnemonicsuffix b)
           (emit_operand r.value)
           ("%" ^ getreg b (Mreg 0)))
@@ -154,7 +154,7 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
 ;;
 
 let emit_fsize (s: Il.smod) (name: string): unit =
-  Il.smod_emit s (Printf.sprintf ".size %s, .-%s\n" name name)
+  Il.smod_emit s (Printf.sprintf ".size\t%s,\t.-%s\n" name name)
 ;;
 
 let emit_ltype (s: Il.smod) (name: string) (l: Il.ltype): unit =
@@ -196,17 +196,17 @@ let emit_lea (s: Il.smod) (l: Il.lea): unit =
     | Mem ((Addr a), _) -> Printf.sprintf ".LK%d(%%rip)" a
     | _ -> emit_operand l.src
   in
-  Il.smod_emit s (Printf.sprintf "\tlea%c %s, %s" (getmnemonicsuffix Bits64) src dest)
+  Il.smod_emit s (Printf.sprintf "\tlea%c\t%s,\t%s" (getmnemonicsuffix Bits64) src dest)
 ;;
 
 let fepilogue (s: Il.smod) (n: int64): unit =
   Il.smod_emit s "\tpushq\t%rbp\n";
-  Il.smod_emit s "\tmovq\t%rsp, %rbp";
+  Il.smod_emit s "\tmovq\t%rsp,\t%rbp";
   if n > 0L
   then begin
     emit_newline s;
     Il.smod_emit s @@
-      Printf.sprintf "\tsubq\t$%Ld, %%rsp" n
+      Printf.sprintf "\tsubq\t$%Ld,\t%%rsp" n
   end else ()
 ;;
 
