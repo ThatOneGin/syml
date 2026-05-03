@@ -47,8 +47,8 @@ let ps_tk2str (ps: parser_State): string =
   | TK_i64 -> "<i64>"
   | TK_plus -> "<+>"
   | TK_minus -> "<->"
-  | TK_mul -> "<*>"
-  | TK_div -> "</>"
+  | TK_star -> "<*>"
+  | TK_slash -> "</>"
   | TK_equ -> "<==>"
   | TK_neq -> "<!=>"
   | TK_lparen -> "<(>"
@@ -128,8 +128,8 @@ let getoperator (ps: parser_State): Ast.operator =
   match ps.peek with
   | TK_plus -> Ast.OADD
   | TK_minus -> Ast.OSUB
-  | TK_mul -> Ast.OMUL
-  | TK_div -> Ast.ODIV
+  | TK_star -> Ast.OMUL
+  | TK_slash -> Ast.ODIV
   | TK_equ -> Ast.OEQU
   | TK_neq -> Ast.ONEQ
   | _ -> ps_unexpected ps "binary operator"
@@ -179,7 +179,7 @@ and parse_suffixedexpr (ps: parser_State): Ast.expr =
   !e
 and parse_mulexpr (ps: parser_State): Ast.expr =
   let lhs: Ast.expr ref = ref (parse_suffixedexpr ps) in
-  while ps.peek = TK_div || ps.peek = TK_mul do
+  while ps.peek = TK_slash || ps.peek = TK_star do
     let op: Ast.operator = getoperator ps in
     ps_next ps;
     let rhs: Ast.expr = parse_suffixedexpr ps in
@@ -229,7 +229,7 @@ and parse_call (ps: parser_State) (caller: Ast.expr): Ast.expr =
 (* Statement parsing *)
 
 (* type = nil | str | i8 | i16 | i32 | i64 *)
-let parse_type (ps: parser_State): Dtypes.datatype =
+let rec parse_type (ps: parser_State): Dtypes.datatype =
   match ps.peek with
   | TK_nil -> ps_next ps; Dtypes.Nil
   | TK_int -> ps_next ps; Dtypes.Int
@@ -238,6 +238,7 @@ let parse_type (ps: parser_State): Dtypes.datatype =
   | TK_i16 -> ps_next ps; Dtypes.I16
   | TK_i32 -> ps_next ps; Dtypes.I32
   | TK_i64 -> ps_next ps; Dtypes.I64
+  | TK_star -> ps_next ps; Dtypes.Ptr (parse_type ps)
   | _ -> ps_unexpected ps "valid type specifier."
 ;;
 

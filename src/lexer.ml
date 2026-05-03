@@ -28,8 +28,8 @@ type token =
 (* operators *)
   | TK_plus
   | TK_minus
-  | TK_mul
-  | TK_div
+  | TK_star
+  | TK_slash
   | TK_equ
   | TK_neq
   | TK_lparen | TK_rparen
@@ -167,8 +167,8 @@ let lex_read_char (ls: lex_State): token =
   | ':' -> lex_advance ls; TK_colon
   | '+' -> lex_advance ls; TK_plus
   | '-' -> lex_advance ls; TK_minus
-  | '*' -> lex_advance ls; TK_mul
-  | '/' -> lex_advance ls; TK_div
+  | '*' -> lex_advance ls; TK_star
+  | '/' -> lex_advance ls; TK_slash
   | ';' -> lex_advance ls; TK_semicolon
   | ',' -> lex_advance ls; TK_comma
   | _ -> syml_errorf "Unsupported char <%d>" (int_of_char ls.current)
