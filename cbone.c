@@ -42,8 +42,9 @@ static void runtests(void)
     {"call", TESTNAME("call.syml")},
     {"inline", TESTNAME("inline.syml")},
     {"cond-value", TESTNAME("cond-value.syml")},
+    {"global", TESTNAME("global.syml")},
     {"if-cond", TESTNAME("if-cond.syml")},
-    {"params", TESTNAME("params.syml")}
+    {"params", TESTNAME("params.syml")},
   };
   cbone_cmd cmd = {0};
   cmd_append(&cmd, "dune");

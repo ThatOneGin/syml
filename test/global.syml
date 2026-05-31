@@ -1,0 +1,8 @@
+let x: i32 = 46
+let y: i16 = 65535
+let z: str = "Hello, world!"
+
+def main() {
+  let this_is_in_the_constant_table: str = "constant string"
+  return 0
+}

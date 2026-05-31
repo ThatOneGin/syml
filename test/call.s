@@ -29,6 +29,6 @@ main:
 	leave
 	ret
 .size	main,	.-main
-.section .rodata
+.section	.rodata
 .LK0:
 	.asciz	"Hello, world!\n"
