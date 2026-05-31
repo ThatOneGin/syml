@@ -19,7 +19,7 @@ let dostring (opts: Comp_state.t) (name: string) (s: string): unit =
   let cs: code_State = cs_new opts smod in
   smod_open_out smod (name ^ ".s");
   while ps.peek != TK_EOF do
-    let t: toplevel = parse_func ps in
+    let t: toplevel = parse_toplevel ps in
     check_toplevel ts t;
     cs_toplevel cs t;
     emit_insts smod (cs_finish cs);

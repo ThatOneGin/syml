@@ -150,6 +150,23 @@ let check_vard (ts: type_State) (v: vard): unit =
   else ts_reg_symbol ts v.name v.ty; ()
 ;;
 
+let is_expr_const (e: expr): bool =
+  match e with
+  | String _ | Number _ -> true
+  | _ -> false
+;;
+
+let ensure_expr_is_const (e: expr): unit =
+  if not (is_expr_const e)
+  then type_error "expression is not constant"
+  else ()
+;;
+
+let check_const_vard (ts: type_State) (v: vard): unit =
+  ensure_expr_is_const v.value;
+  check_vard ts v
+;;
+
 let check_return (ts: type_State) (r: expr): unit =
   let texp = typeof_expr ts r in
   if not (equal ts.curr texp) then
@@ -233,5 +250,5 @@ let check_toplevel (ts: type_State) (f: toplevel): unit =
                        } in
     ts_reg_symbol ts ft.name (Fptr func_type);
     check_func func_scope ft
-  | _ -> ()
+  | Globvar v -> check_const_vard ts v
 ;;

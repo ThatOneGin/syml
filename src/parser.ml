@@ -438,3 +438,20 @@ let parse_func (ps: parser_State): Ast.toplevel =
     Ast.Func fdesc
   | _ -> ps_unexpected ps "'def' token"
 ;;
+
+let parse_globvar (ps: parser_State): Ast.toplevel =
+  match ps.peek with
+  | TK_let -> begin
+    match parse_var ps with
+    | Var v -> Ast.Globvar v
+    | _ -> Common.unreachable "" ""
+  end
+  | _ -> ps_unexpected ps "'let' token"
+;;
+
+let parse_toplevel (ps: parser_State): Ast.toplevel =
+  match ps.peek with
+  | TK_let -> parse_globvar ps
+  | TK_def -> parse_func ps
+  | _ -> ps_unexpected ps "variable or function statement"
+;;
