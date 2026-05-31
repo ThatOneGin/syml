@@ -34,6 +34,7 @@ let anon file = Comp_state.infile opts file;;
 
 let () =
   Arg.parse specs anon usage;
+  Printexc.record_backtrace true;
   let res = Driver.dofiles opts opts.in_files in
   exit (if res then 0 else 1)
 ;;

@@ -261,17 +261,50 @@ let emit_insts (s: Il.smod) (is: Il.insts): unit =
   | _ -> ()
 ;;
 
+let rec emit_const (s: Il.smod) (name: string) (k: Il.const): unit =
+  match k with
+  | K_string str -> emit_const_string s name str
+  | K_integer (int, bits) -> emit_const_int s name int bits
+
+and emit_const_string (s: Il.smod) (name: string) (str: string): unit =
+  Il.smod_emit s
+    (Printf.sprintf "%s:\n\t.asciz\t\"%s\"\n" name str)
+
+and emit_const_int (s: Il.smod) (name: string) (i: int64) (b: Il.bits): unit =
+  let directive =
+    match b with
+    | Bits8 -> ".byte"
+    | Bits16 -> ".hword"
+    | Bits32 -> ".long"
+    | Bits64 -> ".quad"
+  in
+  Il.smod_emit s
+    (Printf.sprintf "%s:\n\t%s\t%Ld\n" name directive i)
+;;
+
 let emit_constants (s: Il.smod): unit =
   let len: int = Array.length s.constants in
   let rec aux (i: int): unit =
     if i >= len then ()
     else
-      let str = Array.get s.constants i in
-      Il.smod_emit s
-        (Printf.sprintf ".LK%d:\n\t.asciz\t\"%s\"\n" i str);
-        aux (i + 1)
+      let const = Array.get s.constants i in
+      emit_const s (Printf.sprintf ".LK%d" i) const;
+      aux (i + 1)
   in
-  if len > 0 then Il.smod_emit s ".section .rodata\n"
+  if len > 0 then Il.smod_emit s ".section\t.rodata\n"
+  else ();
+  aux 0
+
+let emit_globals (s: Il.smod): unit =
+  let len: int = Array.length s.globals in
+  let rec aux (i: int): unit =
+    if i >= len then ()
+    else
+      let (name, const) = Array.get s.globals i in
+      emit_const s name const;
+      aux (i + 1)
+  in
+  if len > 0 then Il.smod_emit s ".section\t.rodata\n"
   else ();
   aux 0
 ;;

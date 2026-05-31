@@ -128,13 +128,18 @@ type inst =
 
 type insts = inst array
 
+type const =
+  | K_string of string
+  | K_integer of (int64 * bits)
+
 type smod = {
     modname: string;
     arch: Common.target_arch;
     nregs: int;
     mutable asm_buf: out_channel option;
     mutable labelcount: int;
-    mutable constants: string array;
+    mutable constants: const array;
+    mutable globals: (string * const) array;
   }
 
 let get_arch_nregister (a: Common.target_arch): int =
@@ -153,7 +158,8 @@ let smod_create (name: string) (arch: Common.target_arch): smod =
     asm_buf = None;
     nregs = (get_arch_nregister arch);
     labelcount = 0;
-    constants = [||]}
+    constants = [||];
+    globals = [||]}
 ;;
 
 let smod_newlabel (smod: smod) (global: bool) =
@@ -185,7 +191,7 @@ let smod_emit (s: smod) (b: string): unit =
 ;;
 
 (* push a value to the constants table *)
-let smod_push_const (s: smod) (k: string): int =
+let smod_push_const (s: smod) (k: const): int =
   let len = Array.length s.constants in
   let rec aux (i: int) =
     if i >= len then None
@@ -197,6 +203,12 @@ let smod_push_const (s: smod) (k: string): int =
   | None ->
     s.constants <- Array.append s.constants [|k|]; 
     len
+;;
+
+let smod_push_global (s: smod) (name: string) (k: const): int =
+  let len = Array.length s.globals in
+  s.globals <- Array.append s.globals [|(name, k)|];
+  len
 ;;
 
 (* pre-made types *)

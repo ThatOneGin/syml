@@ -22,9 +22,11 @@ let dostring (opts: Comp_state.t) (name: string) (s: string): unit =
     let t: toplevel = parse_toplevel ps in
     check_toplevel ts t;
     cs_toplevel cs t;
-    emit_insts smod (cs_finish cs);
+    (if Array.length cs.code > 0
+    then emit_insts smod (cs_finish cs));
   done;
   emit_constants smod;
+  emit_globals smod;
   smod_close_out smod
 ;;
 

@@ -155,8 +155,18 @@ let get_jmp_from_expr (e: Ast.expr) (i: int) (o: operand) (invert: bool): inst =
 
 (* -- translations -- *)
 
+let code_const (cs: code_State) (k: const) (t: ref_ty): operand * int =
+  let idx = smod_push_const cs.smod k in
+  (Il.Mem(Il.Addr idx, t), idx)
+;;
+
+let code_glob (cs: code_State) (name: string) (k: const) (t: ref_ty): operand =
+  drop @@ smod_push_global cs.smod name k;
+  Il.Mem (Il.Name name, t)
+;;
+
 let code_string  (cs: code_State) (s: string): operand =
-  let lea_src = Il.Mem(Il.Addr (smod_push_const cs.smod s), str_t) in
+  let (lea_src, _) = code_const cs (K_string s) str_t in
   let lea_dest = Ra.ctxt_alloc_vreg cs.ctxt in
   cs_lea cs lea_src lea_dest;
   Il.Mem(lea_dest, str_t)
@@ -204,6 +214,20 @@ and code_args (* helper *)
       args := Array.append !args [|code_exp cs e true|]
     ) a;
   !args
+;;
+
+let code_const_exp (e: expr): const =
+  match e with
+  | String s -> K_string s
+  | Number i -> K_integer (Int64.of_int i, Bits32)
+  | _ -> unreachable "" ""
+;;
+
+let code_glob_exp (cs: code_State) (name: string) (e: expr): operand =
+  match e with
+  | String s -> code_glob cs name (K_string s) str_t
+  | Number i -> code_glob cs name (K_integer (Int64.of_int i, Bits32)) i32_t
+  | _ -> unreachable "" ""
 ;;
 
 let code_ret (cs: code_State) (r: expr): unit =
@@ -292,12 +316,10 @@ let code_func (cs: code_State) (f: funct): unit =
   code_leave cs
 ;;
 
-let cs_toplevel (cs: code_State) (t: toplevel): unit =
-  match t with
-  | Func f ->
-    cs.ty <- f.ty;
-    code_func cs f
-  | _ -> ()
+let code_globvar (cs: code_State) (v: vard): unit =
+  let ty = ref_of_type v.ty in
+  let _ = code_glob cs v.name (code_const_exp v.value) ty in
+  cs_reg_var cs v.name (Il.Name v.name, ty)
 ;;
 
 (* set all returns of the function to the last label
@@ -344,4 +366,12 @@ let cs_finish (cs: code_State): insts =
   Hashtbl.clear cs.vars;
   Comp_state.ifdo cs.opts.log_il (fun _ -> print_insts tmp);
   tmp
+;;
+
+let cs_toplevel (cs: code_State) (t: toplevel): unit =
+  match t with
+  | Func f ->
+    cs.ty <- f.ty;
+    code_func cs f;
+  | Globvar v -> code_globvar cs v
 ;;
