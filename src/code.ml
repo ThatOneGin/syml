@@ -92,6 +92,16 @@ let cs_asm (cs: code_State) (code: string) (inputs: operand array): unit =
   })
 ;;
 
+let cs_section
+  (cs: code_State)
+  (se: string list): unit
+  = cs_code cs (Prop (Section se))
+;;
+
+let cs_directive (cs: code_State) (d: directive) =
+  cs_code cs (Prop (Directive d))
+;;
+
 let cs_get_glob (cs: code_State) (name: string): typed_mem =
   match Hashtbl.find_opt cs.glob name with
   | Some v -> v
@@ -305,15 +315,27 @@ let code_func_params (cs: code_State) (f: funct): unit =
     code_param cs p i) f.params
 ;;
 
+let func_start (cs: code_State) (f: funct): unit =
+  cs_directive cs Text;
+  cs_directive cs (Global f.name);
+  cs_directive cs (Type (f.name, Lfunction));
+;;
+
+let func_end (cs: code_State) (f: funct): unit =
+  cs_directive cs (Size (f.name ,(".-"^f.name)))
+;;
+
 let code_func (cs: code_State) (f: funct): unit =
   cs_reg_glob cs f.name (Name f.name, fptr_t);
-  code_namedlabel cs f.name true Lfunction; 
+  func_start cs f;
+  code_namedlabel cs f.name false Lnone;
   code_unnamedlabel cs;
   code_enter cs;
   code_func_params cs f;
   Array.iter (fun (s: stat): unit -> code_stat cs s) f.blk.body;
   code_unnamedlabel cs;
-  code_leave cs
+  code_leave cs;
+  func_end cs f
 ;;
 
 let code_globvar (cs: code_State) (v: vard): unit =

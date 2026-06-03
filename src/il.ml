@@ -124,7 +124,19 @@ type inst =
   | Call of call
   | Binop of binop
   | Jmp of jmp
+  | Prop of prop (* assembler stuff (not really an instruction) *)
   | Nop
+and prop =
+  | Directive of directive
+  | Section of string list (* name, flags *)
+and directive =
+  | File of string
+  | Size of string * string
+  | Align of string * int
+  | Global of string
+  | Local of string
+  | Type of string * ltype
+  | Text
 
 type insts = inst array
 
@@ -353,7 +365,8 @@ let print_insts (is: insts): unit =
               (op2str b.left)
               (op2str b.right)
           | Jmp j -> print_jmp j
-          | Nop -> print_endline "nop"
+          | Prop _ -> ()
+          | Nop -> Printf.printf "nop"
       end;
       print_newline ()
   in
@@ -412,5 +425,6 @@ let visit_inst (iv: inst_visitor) (i: inst): inst =
                       left = iv.visit_opr iv b.left;
                       right = iv.visit_opr iv b.right;}
   | Jmp j -> Jmp j
+  | Prop _ -> i
   | Nop -> Nop
 ;;

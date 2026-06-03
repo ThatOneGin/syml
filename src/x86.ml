@@ -153,22 +153,9 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
     Il.smod_emit s (Printf.sprintf "\tjmp\t.LC%d" r.pc)
 ;;
 
-let emit_fsize (s: Il.smod) (name: string): unit =
-  Il.smod_emit s (Printf.sprintf ".size\t%s,\t.-%s\n" name name)
-;;
-
-let emit_ltype (s: Il.smod) (name: string) (l: Il.ltype): unit =
-  match l with
-  | Lfunction -> Il.smod_emit s (Printf.sprintf ".type\t%s,\t@function\n" name)
-  | Lobject -> Il.smod_emit s (Printf.sprintf ".type\t%s,\t@object\n" name)
-  | Lnone -> ()
-;;
-
 let emit_label (s: Il.smod) (l: Il.label): unit =
   match l with
   | Named_label nl ->
-    (if nl.global then Il.smod_emit s (".globl\t" ^ nl.name ^ "\n"));
-    emit_ltype s nl.name nl.ltype;
     Il.smod_emit s (Printf.sprintf "%s:" nl.name);
   | Unnamed_label id ->
     Il.smod_emit s (Printf.sprintf
@@ -230,6 +217,40 @@ let emit_asm (s: Il.smod) (a: Il.asm): unit =
   Il.smod_emit s res
 ;;
 
+let string_of_ltype (l: Il.ltype) =
+  match l with
+  | Lfunction -> Some "@function"
+  | Lobject -> Some "@object"
+  | Lnone -> None
+;;
+
+let emit_directive (s: Il.smod) (d: Il.directive): unit =
+  match d with
+  | File name -> Il.smod_emit s (Printf.sprintf ".file\t\"%s\"" name)
+  | Size (symbol, size) -> Il.smod_emit s (Printf.sprintf".size\t%s,\t%s" symbol size)
+  | Align (symbol, align) -> Il.smod_emit s (Printf.sprintf ".align\t%s,\t%d" symbol align)
+  | Global symbol -> Il.smod_emit s (Printf.sprintf ".globl\t%s" symbol)
+  | Local symbol -> Il.smod_emit s (Printf.sprintf ".local\t%s" symbol)
+  | Type (symbol, t) ->
+    begin match string_of_ltype t with
+      | Some st -> Il.smod_emit s (Printf.sprintf ".type\t%s,\t%s" symbol st)
+      | None -> Il.smod_emit s (Printf.sprintf "/* .type\t%s, %s*/" symbol "@none")
+    end
+  | Text -> Il.smod_emit s ".text"
+;;
+
+let emit_section (s: Il.smod) (se: string list): unit =
+  assert (List.length se > 0);
+  Il.smod_emit s (Printf.sprintf ".section\t" );
+  Il.smod_emit s (String.concat "," se)
+;;
+
+let emit_prop (s: Il.smod) (p: Il.prop): unit =
+  match p with
+  | Directive d -> emit_directive s d
+  | Section se -> emit_section s se
+;;
+
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   let () =
   match i with
@@ -243,6 +264,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Binop b -> emit_binop s b
   | Jmp j -> emit_jmp s j
   | Nop -> Il.smod_emit s "/* nop */"
+  | Prop p -> emit_prop s p
   | Alloca a -> Il.smod_emit s (Printf.sprintf "/* alloca %%%d %s */" a.dest (Dtypes.type2str a.ty))
   | Lea l -> emit_lea s l
   in
@@ -253,12 +275,7 @@ let emit_insts (s: Il.smod) (is: Il.insts): unit =
   let iterator = fun (i: Il.inst): unit ->
     emit_inst s i;
   in
-  Il.smod_emit s ".text\n";
   Array.iter iterator is;
-  match is.(0) with
-  | Label (Named_label l) ->
-    emit_fsize s l.name (* optional, but a good thing if we can really put the .size directive *)
-  | _ -> ()
 ;;
 
 let rec emit_const (s: Il.smod) (name: string) (k: Il.const): unit =
