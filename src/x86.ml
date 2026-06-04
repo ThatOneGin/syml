@@ -155,8 +155,8 @@ let emit_ret (s: Il.smod) (r: Il.ret): unit =
 
 let emit_label (s: Il.smod) (l: Il.label): unit =
   match l with
-  | Named_label nl ->
-    Il.smod_emit s (Printf.sprintf "%s:" nl.name);
+  | Named_label name ->
+    Il.smod_emit s (Printf.sprintf "%s:" name);
   | Unnamed_label id ->
     Il.smod_emit s (Printf.sprintf
       ".LC%d:" id)

@@ -56,11 +56,7 @@ type ltype =
   | Lnone
 
 type label =
-  | Named_label of {
-      name: string;
-      global: bool;
-      ltype: ltype;
-    }
+  | Named_label of string
   | Unnamed_label of int
 
 type ret = {
@@ -312,7 +308,7 @@ let op2str (o: operand): string =
 
 let label2str (l: label): string =
   match l with
-  | Named_label nl -> nl.name
+  | Named_label name -> name
   | Unnamed_label id -> "LC<" ^ (string_of_int id) ^ ">"
 ;;
 

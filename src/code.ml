@@ -133,12 +133,8 @@ let code_leave (cs: code_State): unit = cs_code cs Leave; ();;
 
 (* create labels *)
 
-let code_namedlabel (cs: code_State) (name: string) (global: bool) (ty: ltype): unit =
-  cs_code cs (Label (Named_label {
-    name = name;
-    global = global;
-    ltype = ty;
-  })); ()
+let code_namedlabel (cs: code_State) (name: string): unit =
+  cs_code cs (Label (Named_label name))
 ;;
 
 let code_unnamedlabel (cs: code_State): unit =
@@ -328,7 +324,7 @@ let func_end (cs: code_State) (f: funct): unit =
 let code_func (cs: code_State) (f: funct): unit =
   cs_reg_glob cs f.name (Name f.name, fptr_t);
   func_start cs f;
-  code_namedlabel cs f.name false Lnone;
+  code_namedlabel cs f.name;
   code_unnamedlabel cs;
   code_enter cs;
   code_func_params cs f;
