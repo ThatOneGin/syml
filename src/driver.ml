@@ -3,6 +3,7 @@
  *  Compiler driver
  *)
 
+open Common
 open Lexer
 open Parser
 open Code
@@ -44,14 +45,25 @@ let dofile (opts: Comp_state.t) (filename: string): unit =
   dostring opts (Filename.remove_extension filename) chunk_content
 ;;
 
+let errprint (succ: bool ref) fmt: 'a =
+  succ := false;
+  Printf.ksprintf (fun s ->
+    print_string "error: ";
+    print_endline s) fmt
+;;
+
 let dofiles (opts: Comp_state.t) (files: string list): bool =
   let succ: bool ref = ref true in
   List.iter
     (fun f ->
       try dofile opts f
-      with e ->
-        Printf.eprintf "[Error]: at '%s': %s\n" f @@ Printexc.to_string e;
-        succ := false;
+      with
+        | Lexical_error (loc, msg) -> errprint succ "%s: %s" (location2str loc) msg
+        | Parsing_error (loc, msg) -> errprint succ "%s: %s" (location2str loc) msg
+        | Common_error msg -> errprint succ "%s" msg
+        | Unreachable_error (what, where) -> errprint succ "unreachable state at %s: %s" what where
+        | Todo_error what -> errprint succ "%s is not implemented" what
+        | _ as e -> raise e
     ) files;
   !succ
 ;;

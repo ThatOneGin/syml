@@ -5,6 +5,8 @@
 
 open Common
 
+exception Lexical_error of location * string
+
 type token =
 (* terminal symbols *)
   | TK_identifier of string
@@ -47,6 +49,7 @@ type lex_State = {
     mutable current: char;
     mutable pos: int;
     mutable line: int;
+    mutable col: int;
   }
 
 let reserved_table = [
@@ -64,36 +67,54 @@ let reserved_table = [
     ("i32", TK_i32);
     ("i64", TK_i64);
   ]
+;;
 
 let lex_new (name: string) (source: string) = {
-  name = name;
-  src = source;
-  len = String.length source;
-  pos = 0;
-  line = 1;
-  current = if String.length source > 0 then source.[0] else '\000';
-}
+    name = name;
+    src = source;
+    len = String.length source;
+    pos = 0;
+    line = 1;
+    col = 1;
+    current = if String.length source > 0 then source.[0] else '\000';
+  }
+;;
+
+let lex_report_location (ls: lex_State)
+ : location = location_new ls.name ls.line ls.col
+;;
+
+let lex_error (ls: lex_State) (msg: string) = 
+  raise (Lexical_error (lex_report_location ls, msg));;
 
 let lex_terminated(ls: lex_State): bool = ls.pos >= ls.len
 
 let lex_advance(ls: lex_State): unit =
-  if ls.current = '\n' then ls.line <- ls.line + 1;
+  if ls.current = '\n' then begin
+    ls.line <- ls.line + 1;
+    ls.col <- 1;
+  end;
   ls.pos <- ls.pos + 1;
   if lex_terminated ls then
     ls.current <- '\000'
-  else
-    ls.current <- ls.src.[ls.pos]
+  else begin
+    ls.current <- ls.src.[ls.pos];
+    ls.col <- ls.col + 1
+  end
+;;
 
 let ctype_is_whitespace (ls: lex_State): bool =
   if lex_terminated ls then false else
     match ls.current with
     | ' ' | '\n' | '\r' | '\x0C' -> true
     | _ -> false
+;;
 
 let lex_skip_whitespace (ls: lex_State): unit =
   while (not (lex_terminated ls)) && ctype_is_whitespace ls do
     lex_advance ls;
-  done; ()
+  done
+;;
 
 let ctype_is_alpha (ls: lex_State): bool =
   if lex_terminated ls then false else
@@ -101,12 +122,14 @@ let ctype_is_alpha (ls: lex_State): bool =
   | 'a' .. 'z' | 'A' .. 'Z'
   | '_' -> true
   | _ -> false
+;;
 
 let ctype_is_digit (ls: lex_State): bool =
   if lex_terminated ls then false else
     match ls.current with
     | '0' .. '9' -> true
     | _ -> false
+;;
 
 let ctype_is_alnum (ls: lex_State): bool =
   match ls.current with
@@ -114,6 +137,7 @@ let ctype_is_alnum (ls: lex_State): bool =
     | '_' -> true
     | '0' .. '9' -> true
     | _ -> false
+;;
 
 let lex_read_identifier (ls: lex_State): string =
   let start = ls.pos in
@@ -121,6 +145,7 @@ let lex_read_identifier (ls: lex_State): string =
     lex_advance ls;
   done;
   String.sub ls.src start (ls.pos - start)
+;;
 
 let lex_read_digit (ls: lex_State): string =
   let start = ls.pos in
@@ -128,6 +153,7 @@ let lex_read_digit (ls: lex_State): string =
     lex_advance ls;
   done;
   String.sub ls.src start (ls.pos - start)
+;;
 
 let lex_read_string (ls: lex_State): string =
   lex_advance ls;
@@ -138,10 +164,7 @@ let lex_read_string (ls: lex_State): string =
   let l_end: int = ls.pos in
   lex_advance ls;
   String.sub ls.src start (l_end - start)
-
-let lex_report_location (ls: lex_State): location =
-  let loc: location = location_new ls.name ls.line in
-  loc
+;;
 
 let read_double_op (ls: lex_State): token =
   match ls.current with
@@ -153,7 +176,8 @@ let read_double_op (ls: lex_State): token =
       lex_advance ls;
       if ls.current = '=' then begin lex_advance ls; TK_neq end
       else syml_errorf "Expected '=' after '!'"
-  | _ -> syml_errorf "Unsupported char <%d>" (int_of_char ls.current)
+  | _ -> lex_error ls (Printf.sprintf "Unsupported char <%d>" (int_of_char ls.current))
+;;
 
 let lex_read_char (ls: lex_State): token =
   match ls.current with
@@ -171,7 +195,8 @@ let lex_read_char (ls: lex_State): token =
   | '/' -> lex_advance ls; TK_slash
   | ';' -> lex_advance ls; TK_semicolon
   | ',' -> lex_advance ls; TK_comma
-  | _ -> syml_errorf "Unsupported char <%d>" (int_of_char ls.current)
+  | _ -> lex_error ls (Printf.sprintf "Unsupported char <%d>" (int_of_char ls.current))
+;;
 
 let lex_search (s: string): token =
   let rec aux (s: string) (l: (string * token) list): token =
@@ -181,6 +206,7 @@ let lex_search (s: string): token =
     | _ :: tail -> aux s tail
   in
   aux s reserved_table
+;;
 
 (* get next token in lexer stream *)
 let lex_next(ls: lex_State): token =
@@ -196,3 +222,4 @@ let lex_next(ls: lex_State): token =
     let str: string = lex_read_string ls in
     TK_string str
   else lex_read_char ls
+;;

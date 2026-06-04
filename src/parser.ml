@@ -14,7 +14,7 @@ type parser_State =
    mutable depth: int;
    ls: lex_State;}
 
-exception Unexpected of string
+exception Parsing_error of Common.location * string
 
 let ps_new (ls: lex_State): parser_State = {
     peek = lex_next ls;
@@ -64,11 +64,14 @@ let ps_tk2str (ps: parser_State): string =
   | TK_EOF -> "<EOF>"
 ;;
 
-let ps_describe_token (ps: parser_State): string = Printf.sprintf "token %s" (ps_tk2str ps);;
-let ps_error (message: string) = (Unexpected message);;
+let ps_describe_token (ps: parser_State): string =
+  Printf.sprintf "token %s" (ps_tk2str ps);;
+
+let ps_error (ps: parser_State) (msg: string) =
+  (Parsing_error (lex_report_location ps.ls, msg));;
 
 let ps_unexpected (ps: parser_State) (expected: string): 'a =
-  raise (ps_error
+  raise (ps_error ps
     (Printf.sprintf "Unexpected %s, expected %s"
       (ps_describe_token ps) expected))
 ;;
