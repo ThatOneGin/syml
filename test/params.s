@@ -6,8 +6,8 @@ add:
 	pushq	%rbp
 	movq	%rsp,	%rbp
 	subq	$16,	%rsp
-	movl	16(%rbp),	%eax
-	addl	24(%rbp), %eax
+	movl	%edi,	%eax
+	addl	%esi,	%eax
 /* alloca %0 i32 */
 	movl	%eax,	-4(%rbp)
 	movl	-4(%rbp),	%eax

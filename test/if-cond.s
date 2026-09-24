@@ -11,7 +11,7 @@ main:
 /* alloca %1 i32 */
 	movl	$1,	-8(%rbp)
 	movl	-4(%rbp),	%eax
-	cmpl	-8(%rbp), %eax
+	cmpl	-8(%rbp),	%eax
 	je	.LC1
 	movl	$1,	%eax
 	jmp	.LC2

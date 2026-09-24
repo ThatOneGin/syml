@@ -6,8 +6,8 @@ add:
 	pushq	%rbp
 	movq	%rsp,	%rbp
 	subq	$16,	%rsp
-	movl	16(%rbp),	%eax
-	addl	24(%rbp), %eax
+	movl	%edi,	%eax
+	addl	%esi,	%eax
 	nop
 	jmp	.LC1
 .LC1:
@@ -26,8 +26,8 @@ main:
 	movl	$32,	-4(%rbp)
 /* alloca %1 i32 */
 	movl	$43,	-8(%rbp)
-	pushq	-8(%rbp)
-	pushq	-4(%rbp)
+	movq	-4(%rbp),	%rdi
+	movq	-8(%rbp),	%rsi
 	call	add
 /* alloca %2 i32 */
 	movl	%eax,	-12(%rbp)

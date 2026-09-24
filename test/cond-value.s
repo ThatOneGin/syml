@@ -11,7 +11,7 @@ main:
 /* alloca %1 i32 */
 	movl	$1,	-8(%rbp)
 	movl	-4(%rbp),	%eax
-	cmpl	-8(%rbp), %eax
+	cmpl	-8(%rbp),	%eax
 	sete	%al
 	movzbl	%al, %eax
 /* alloca %2 i32 */
