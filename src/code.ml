@@ -11,6 +11,7 @@ open Common
 (* state needed to convert AST to IL *)
 type code_State = {
     opts: Comp_state.t;
+    abi: Abi.t;
     mutable ctxt: ctxt;
     smod: smod;
     mutable code: insts;
@@ -21,6 +22,7 @@ type code_State = {
 
 let cs_new (opts: Comp_state.t) (smod: smod): code_State = {
     opts = opts;
+    abi = Abi.create opts.target;
     ctxt = ctxt_new opts smod;
     smod = smod;
     code = [||];
@@ -301,7 +303,11 @@ let code_param
   (p: param)
   (i: int): unit =
   let ty = ref_of_type p.ty in
-  let dest = Stack (16 + (8 * i)) in
+  let dest = 
+    match cs.abi.nth_reg_arg cs.abi i with
+    | Some r -> r
+    | None -> Stack (16 + (8 * (i - cs.abi.fnarg_regs)))
+  in
   cs_reg_var cs p.name @@ (dest, ty)
 ;;
 

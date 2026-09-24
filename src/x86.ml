@@ -25,6 +25,10 @@ let reg_table = [
   ["r15b"; "r15w"; "r15d"; "r15"];
 ]
 
+let abi =
+  Abi.create Common.Linux_X86_64
+;;
+
 exception Code_x86_64 of string
 
 let getreg (b: Il.bits) (r: Il.reg): string =
@@ -108,7 +112,7 @@ let emit_binop (s: Il.smod) (b: Il.binop): unit =
     | _ -> "; "
   in
   Il.smod_emit s
-    (Printf.sprintf "\t%s%c\t%s, %s"
+    (Printf.sprintf "\t%s%c\t%s,\t%s"
       ins
       (getmnemonicsuffix (Il.type2bits b.ty))
       (emit_operand b.right)
@@ -162,10 +166,27 @@ let emit_label (s: Il.smod) (l: Il.label): unit =
       ".LC%d:" id)
 ;;
 
+let emit_arg (s: Il.smod) (a: Il.operand) (i: int): unit =
+  match abi.nth_reg_arg abi i with
+  | Some r ->
+    Il.smod_emit s
+      (Printf.sprintf "\tmovq\t%s,\t%s\n"
+      (emit_operand a)
+      (emit_mem r Bits64))
+  | None -> ()
+;;
+
 let emit_args (s: Il.smod) (a: Il.operand array): unit =
   let len = Array.length a in
-  for i = len - 1 downto 0 do
-    Il.smod_emit s (Printf.sprintf "\tpushq\t%s\n" (emit_operand a.(i)))
+  let nreg_args = min len abi.fnarg_regs in
+  for i = 0 to nreg_args - 1 do
+    emit_arg s a.(i) i
+  done;
+  (* push the rest in the inverse order *)
+  for i = len - 1 downto nreg_args do
+    Il.smod_emit s
+      (Printf.sprintf "\tpushq\t%s\n"
+        (emit_operand a.(i)))
   done
 ;;
 
