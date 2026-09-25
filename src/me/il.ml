@@ -312,62 +312,64 @@ let label2str (l: label): string =
   | Unnamed_label id -> "LC<" ^ (string_of_int id) ^ ">"
 ;;
 
-let print_jmp (j: jmp) =
+let jmp2str (j: jmp): string =
   match j with
-  | Je i -> Printf.printf "je %d" i
-  | Jne i -> Printf.printf "jne %d" i
-  | Test t -> Printf.printf "test %s, LC<%d>" (op2str t.op) t.jit
-  | Jump i -> Printf.printf "jmp %d" i
+  | Je i -> Printf.sprintf "je %d" i
+  | Jne i -> Printf.sprintf "jne %d" i
+  | Test t -> Printf.sprintf "test %s, LC<%d>" (op2str t.op) t.jit
+  | Jump i -> Printf.sprintf "jmp %d" i
+;;
+
+let inst2str (i: inst): string =
+  match i with
+  | Alloca a ->
+    Printf.sprintf "\t%s <- alloca %s"
+      (reg2str (Vreg a.dest)) (Dtypes.type2str a.ty)
+  | Move m ->
+    Printf.sprintf "\t%s <- %s"
+      (mem2str m.dest)
+      (op2str m.src)
+  | Ret r ->
+    Printf.sprintf "\tret %s"
+      (op2str r.value)
+  | Enter _ -> "\tEnter"
+  | Leave -> "\tLeave"
+  | Label l ->
+    Printf.sprintf "\r%s:"
+      (label2str l)
+  | Asm a -> Printf.sprintf "%s" a.code
+  | Lea l ->
+    Printf.sprintf "\tlea %s, %s"
+      (mem2str l.dest) (op2str l.src)
+  | Call c -> Printf.sprintf "\tcall %s" @@ op2str c.f
+  | Binop b ->
+    let op = match b.op with
+      | Ast.OADD -> "add"
+      | Ast.ODIV -> "div"
+      | Ast.OMUL -> "mul"
+      | Ast.OSUB -> "sub"
+      | Ast.OEQU -> "equ"
+      | Ast.ONEQ -> "neq"
+      | _ -> "invalid"
+    in
+    Printf.sprintf "\t%s %s, %s"
+      op
+      (op2str b.left)
+      (op2str b.right)
+  | Jmp j -> "\t" ^ jmp2str j
+  | Prop _ -> ""
+  | Nop -> "\tnop"
 ;;
 
 let print_insts (is: insts): unit =
-  let f =
-    fun (i: inst): unit ->
-      print_char '\t';
-      begin
-        match i with
-          | Alloca a ->
-            Printf.printf "%s <- alloca %s"
-              (reg2str (Vreg a.dest)) (Dtypes.type2str a.ty)
-          | Move m ->
-            Printf.printf "%s <- %s"
-              (mem2str m.dest)
-              (op2str m.src)
-          | Ret r ->
-            Printf.printf "ret %s"
-              (op2str r.value)
-          | Enter _ -> print_endline "Enter"
-          | Leave -> print_endline "Leave"
-          | Label l ->
-            Printf.printf "\r%s:"
-              (label2str l)
-          | Asm a -> Printf.printf "%s" a.code
-          | Lea l ->
-            Printf.printf "lea %s, %s"
-              (mem2str l.dest) (op2str l.src)
-          | Call c -> Printf.printf "call %s" @@ op2str c.f
-          | Binop b ->
-            let op = match b.op with
-              | Ast.OADD -> "add"
-              | Ast.ODIV -> "div"
-              | Ast.OMUL -> "mul"
-              | Ast.OSUB -> "sub"
-              | Ast.OEQU -> "equ"
-              | Ast.ONEQ -> "neq"
-              | _ -> "invalid"
-            in
-            Printf.printf "%s %s, %s"
-              op
-              (op2str b.left)
-              (op2str b.right)
-          | Jmp j -> print_jmp j
-          | Prop _ -> ()
-          | Nop -> Printf.printf "nop"
-      end;
-      print_newline ()
+  let f i =
+    let s = inst2str i in
+    print_string s;
+    if String.length s > 0
+    then print_newline ()
+    else ()
   in
   Array.iter f is;
-  ()
 ;;
 
 (*
