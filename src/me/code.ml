@@ -346,6 +346,16 @@ let code_globvar (cs: code_State) (v: vard): unit =
   cs_reg_var cs v.name (Il.Name v.name, ty)
 ;;
 
+let code_extern (cs: code_State) (e: extern): unit =
+  let ty = ref_of_type e.ty in
+  let name =
+    match e.altname with
+    | Some s -> s
+    | None -> e.name
+  in
+  cs_reg_var cs e.name (Il.Name name, ty)
+;;
+
 (* set all returns of the function to the last label
  * which contains a leave instruction
  *)
@@ -398,4 +408,5 @@ let cs_toplevel (cs: code_State) (t: toplevel): unit =
     cs.ty <- f.ty;
     code_func cs f;
   | Globvar v -> code_globvar cs v
+  | Extern e -> code_extern cs e
 ;;

@@ -18,10 +18,11 @@ type stat =
   | Voidcall of vcall
   | Block of block
   | Ifstat of ifstat
-  | While of whilestat 
+  | While of whilestat
 and toplevel = (* unused *)
   | Func of funct
   | Globvar of vard
+  | Extern of extern
 and block = {
     mutable body: stat array;
   }
@@ -55,6 +56,11 @@ and whilestat = {
 and asm = {
     code: string;
     inputs: expr array;
+  }
+and extern = {
+    name: string; (* name used in the program *)
+    altname: string option; (* name used in the backend *)
+    ty: Dtypes.datatype;
   }
 
 let block_append (b: block) (s: stat): unit =

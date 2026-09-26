@@ -38,6 +38,8 @@ let ps_tk2str (ps: parser_State): string =
   | TK_asm -> "<asm>"
   | TK_if -> "<if>"
   | TK_while -> "<while>"
+  | TK_extern -> "<extern>"
+  | TK_as -> "<as>"
   | TK_nil -> "<nil>"
   | TK_int -> "<int>"
   | TK_str -> "<str>"
@@ -452,9 +454,63 @@ let parse_globvar (ps: parser_State): Ast.toplevel =
   | _ -> ps_unexpected ps "'let' token"
 ;;
 
+let parse_type_list (ps: parser_State): Dtypes.datatype list =
+  let types: Dtypes.datatype list ref = ref [] in
+  let rec aux () =
+    types := !types @ [parse_type ps];
+    match ps.peek with
+    | TK_comma -> ps_next ps; aux ()
+    | _ -> ()
+  in
+  aux ();
+  !types
+;;
+
+let parse_extern (ps: parser_State): Ast.toplevel =
+  let parse_altname () =
+    match ps.peek with
+    | TK_as ->
+      ps_next ps;
+      Some (parse_name_as_string ps)
+    | _ ->
+      None
+  in
+  ps_expect_sym ps TK_extern "'extern' token";
+  match ps.peek with
+  | TK_def ->
+    ps_next ps;
+    let name = parse_name_as_string ps in
+    ps_expect_sym ps TK_lparen "'(' to open parameter list";
+    let ty = parse_type_list ps in
+    ps_expect_sym ps TK_rparen "')' to close parameter list";
+    ps_expect_sym ps TK_colon "':' for type specifier";
+    let ret = parse_type ps in
+    let altname = parse_altname () in
+    Extern {
+      name = name;
+      altname = altname;
+      ty = Dtypes.Fptr {
+        ret = ret;
+        args = ty;
+      }
+    }
+  | TK_identifier name ->
+    ps_next ps;
+    ps_expect_sym ps TK_colon "':' for type specifier";
+    let ty = parse_type ps in
+    let altname = parse_altname () in
+    Extern {
+      name = name;
+      altname = altname;
+      ty = ty
+    }
+  | _ -> ps_unexpected ps "function or variable declaration"
+;;
+
 let parse_toplevel (ps: parser_State): Ast.toplevel =
   match ps.peek with
   | TK_let -> parse_globvar ps
   | TK_def -> parse_func ps
+  | TK_extern -> parse_extern ps
   | _ -> ps_unexpected ps "variable or function statement"
 ;;

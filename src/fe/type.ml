@@ -251,4 +251,6 @@ let check_toplevel (ts: type_State) (f: toplevel): unit =
     ts_reg_symbol ts ft.name (Fptr func_type);
     check_func func_scope ft
   | Globvar v -> check_const_vard ts v
+  | Extern e ->
+    ts_reg_symbol ts e.name e.ty
 ;;
