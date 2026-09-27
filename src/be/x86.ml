@@ -63,12 +63,13 @@ let emit_mem (m: Il.mem) (ty: Il.bits): string =
   | Addr a -> Printf.sprintf "$.LK%d" a
   | Reg r -> "%" ^ getreg ty r
   | Stack s -> Printf.sprintf "%d(%%rbp)" s
-  | Name s -> s
+  | Name n ->
+    n.symbol ^ (if n.extern then "@GOTPCREL(%rip)" else "(%rip)")
 ;;
 
 let emit_operand (o: Il.operand): string =
   match o with
-  | Mem (m, t) -> emit_mem m @@ Il.bits_of_ref_ty t
+  | Mem (m, t) -> emit_mem m (Il.bits_of_ref_ty t)
   | Imm (i, _) -> emit_imm i
 ;;
 
@@ -192,7 +193,18 @@ let emit_args (s: Il.smod) (a: Il.operand array): unit =
 
 let emit_call (s: Il.smod) (c: Il.call): unit =
   emit_args s c.args;
-  Il.smod_emit s (Printf.sprintf "\tcall\t%s" @@ emit_operand c.f)
+  let inner_emit_mem (m: Il.mem): string =
+    match m with
+    | Name n -> n.symbol
+    | _ -> "*" ^ emit_mem m Bits64 (* indirect call *)
+  in
+  let f =
+    match c.f with
+    | Mem (m, _) -> inner_emit_mem m
+    | _ -> emit_operand c.f
+  in
+  Il.smod_emit s
+    (Printf.sprintf "\tcall\t%s" f)
 ;;
 
 let emit_lea (s: Il.smod) (l: Il.lea): unit =

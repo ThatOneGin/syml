@@ -25,11 +25,17 @@ type reg =
   | Vreg of vreg
   | Mreg of mreg
 
+type name = {
+    symbol: string;
+    extern: bool;
+    ty: ref_ty
+  }
+
 type mem =
   | Addr of int (* constant *)
   | Reg of reg
   | Stack of stack
-  | Name of string (* if it is typed_mem, the bits type does not matter *)
+  | Name of name (* if it is typed_mem, the bits type does not matter *)
 
 type typed_imm = (imm * ref_ty)
 type typed_mem = (mem * ref_ty)
@@ -297,7 +303,7 @@ let mem2str (m: mem): string =
   | Addr a -> Printf.sprintf "LK[%d]" a
   | Reg r -> reg2str r
   | Stack s -> Printf.sprintf "[sp:%d]" s
-  | Name s -> s
+  | Name n -> n.symbol
 ;;
 
 let op2str (o: operand): string =

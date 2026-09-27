@@ -170,7 +170,11 @@ let code_const (cs: code_State) (k: const) (t: ref_ty): operand * int =
 
 let code_glob (cs: code_State) (name: string) (k: const) (t: ref_ty): operand =
   drop @@ smod_push_global cs.smod name k;
-  Il.Mem (Il.Name name, t)
+  Il.Mem (Il.Name {
+    symbol = name;
+    extern = false;
+    ty = t;
+  }, t)
 ;;
 
 let code_string  (cs: code_State) (s: string): operand =
@@ -328,7 +332,12 @@ let func_end (cs: code_State) (f: funct): unit =
 ;;
 
 let code_func (cs: code_State) (f: funct): unit =
-  cs_reg_glob cs f.name (Name f.name, fptr_t);
+  let name: Il.name = {
+    symbol = f.name;
+    extern = false;
+    ty = fptr_t;
+  } in
+  cs_reg_glob cs f.name (Name name, fptr_t);
   func_start cs f;
   code_namedlabel cs f.name;
   code_unnamedlabel cs;
@@ -343,16 +352,26 @@ let code_func (cs: code_State) (f: funct): unit =
 let code_globvar (cs: code_State) (v: vard): unit =
   let ty = ref_of_type v.ty in
   let _ = code_glob cs v.name (code_const_exp v.value) ty in
-  cs_reg_var cs v.name (Il.Name v.name, ty)
+  let name: Il.name = {
+    symbol = v.name;
+    extern = false;
+    ty = ty;
+  } in
+  cs_reg_var cs v.name (Il.Name name, ty)
 ;;
 
 let code_extern (cs: code_State) (e: extern): unit =
   let ty = ref_of_type e.ty in
-  let name =
+  let symbol =
     match e.altname with
     | Some s -> s
     | None -> e.name
   in
+  let name = {
+    symbol = symbol;
+    extern = true;
+    ty = ty;
+  } in
   cs_reg_var cs e.name (Il.Name name, ty)
 ;;
 
