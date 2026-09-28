@@ -90,7 +90,7 @@ let get_cond_suffix (o: Ast.operator) (swap: bool): string =
 let finish_binop (s: Il.smod) (b: Il.binop): unit =
   if not b.return_val then ()
   else
-    let suffix = getmnemonicsuffix (Il.type2bits b.ty) in
+    let suffix = getmnemonicsuffix b.ty in
     match b.op with
     | Ast.OEQU | Ast.ONEQ ->
       Il.smod_emit s
@@ -115,7 +115,7 @@ let emit_binop (s: Il.smod) (b: Il.binop): unit =
   Il.smod_emit s
     (Printf.sprintf "\t%s%c\t%s,\t%s"
       ins
-      (getmnemonicsuffix (Il.type2bits b.ty))
+      (getmnemonicsuffix b.ty)
       (emit_operand b.right)
       (emit_operand b.left));
   finish_binop s b
@@ -142,7 +142,7 @@ let emit_move (s: Il.smod) (m: Il.move): unit =
 ;;
 
 let emit_ret (s: Il.smod) (r: Il.ret): unit = 
-  let b: Il.bits = Il.type2bits r.ty in
+  let b: Il.bits = Il.bits_of_ref_ty r.ty in
     (* This doesn't handle values with size greater than 64-bits *)
     let op: string = emit_operand r.value in
     let rr: string = "%" ^ getreg b (Mreg 0) in
@@ -298,7 +298,7 @@ let emit_inst (s: Il.smod) (i: Il.inst): unit =
   | Jmp j -> emit_jmp s j
   | Nop -> Il.smod_emit s "/* nop */"
   | Prop p -> emit_prop s p
-  | Alloca a -> Il.smod_emit s (Printf.sprintf "/* alloca %%%d %s */" a.dest (Dtypes.type2str a.ty))
+  | Alloca a -> Il.smod_emit s (Printf.sprintf "/* alloca %%%d %s */" a.dest (Il.ref_ty2str a.ty))
   | Lea l -> emit_lea s l
   in
   emit_newline s

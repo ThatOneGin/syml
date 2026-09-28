@@ -51,7 +51,7 @@ let cs_alloca
   (ty: Dtypes.datatype)
   (dest: vreg): unit =
   cs_code cs (Alloca {
-    ty = ty;
+    ty = ref_of_type ty;
     dest = dest;
   })
 ;;
@@ -68,7 +68,7 @@ let cs_binop
     left = left;
     right = right;
     op = op;
-    ty = ty;
+    ty = type2bits ty;
     return_val = ret;
   })
 ;;
@@ -244,7 +244,7 @@ let code_glob_exp (cs: code_State) (name: string) (e: expr): operand =
 
 let code_ret (cs: code_State) (r: expr): unit =
   let op = (code_exp cs r true) in
-  cs_code cs (Ret {ty = cs.ty;
+  cs_code cs (Ret {ty = ref_of_type cs.ty;
                   value = op;
                   pc = 0;})
 ;;

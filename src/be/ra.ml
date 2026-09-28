@@ -198,7 +198,7 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
   Array.iteri (fun i v ->
     match v with (* check for alloca *)
     | Alloca a -> 
-      let bits_ty = type2bits a.ty in
+      let bits_ty = bits_of_ref_ty a.ty in
       let dest = reserve_var ctxt bits_ty in
       Hashtbl.add vreg_to_spill a.dest dest;
       new_insts.(i) <- v

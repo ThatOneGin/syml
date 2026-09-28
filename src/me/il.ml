@@ -47,7 +47,7 @@ type operand =
 
 (* pseudo-instruction used to allocate a stack-slot for vreg 'dest' *)
 type alloca = {
-    ty: Dtypes.datatype;
+    ty: ref_ty;
     dest: vreg;
   }
 
@@ -66,7 +66,7 @@ type label =
   | Unnamed_label of int
 
 type ret = {
-    ty: Dtypes.datatype;
+    ty: ref_ty;
     value: operand;
     mutable pc: int;
   }
@@ -87,7 +87,7 @@ type binop = {
     left: operand;
     right: operand;
     op: Ast.operator;
-    ty: Dtypes.datatype;
+    ty: bits;
     return_val: bool;
   }
 
@@ -292,6 +292,21 @@ let vreg_of_mem (m: mem): vreg =
 
 (* IL printer for visualization *)
 
+let rec ref_ty2str (r: ref_ty): string =
+  let bits2str b =
+    match b with
+    | Bits8 -> "i8"
+    | Bits16 -> "i16"
+    | Bits32 -> "i32"
+    | Bits64 -> "i64"
+  in
+  match r with
+  | Val_ty b -> bits2str b
+  | Ptr_ty t -> "*" ^ ref_ty2str t
+  | Func_ty -> "function"
+  | Nil_ty -> "nil"
+;;
+
 let reg2str (r: reg): string =
   match r with 
   | Vreg v -> Printf.sprintf "%%%d" v
@@ -330,7 +345,7 @@ let inst2str (i: inst): string =
   match i with
   | Alloca a ->
     Printf.sprintf "\t%s <- alloca %s"
-      (reg2str (Vreg a.dest)) (Dtypes.type2str a.ty)
+      (reg2str (Vreg a.dest)) (ref_ty2str a.ty)
   | Move m ->
     Printf.sprintf "\t%s <- %s"
       (mem2str m.dest)
