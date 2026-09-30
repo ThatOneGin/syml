@@ -22,14 +22,11 @@ main:
 	pushq	%rbp
 	movq	%rsp,	%rbp
 	subq	$16,	%rsp
-/* alloca %0 i32 */
 	movl	$32,	-4(%rbp)
-/* alloca %1 i32 */
 	movl	$43,	-8(%rbp)
 	movq	-4(%rbp),	%rdi
 	movq	-8(%rbp),	%rsi
 	call	add
-/* alloca %2 i32 */
 	movl	%eax,	-12(%rbp)
 	movl -12(%rbp), -8(%rbp)
 .LC3:

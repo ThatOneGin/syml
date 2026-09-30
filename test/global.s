@@ -5,9 +5,8 @@ main:
 .LC0:
 	pushq	%rbp
 	movq	%rsp,	%rbp
-	subq	$16,	%rsp
+	subq	$32,	%rsp
 	leaq	.LK0(%rip),	%rax
-/* alloca %0 string */
 	movq	%rax,	-8(%rbp)
 	movl	$0,	%eax
 	jmp	.LC1

@@ -285,23 +285,24 @@ let emit_prop (s: Il.smod) (p: Il.prop): unit =
 ;;
 
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
-  let () =
-  match i with
-  | Move m -> emit_move s m
-  | Ret r -> emit_ret s r
-  | Enter x -> fepilogue s x
-  | Leave -> fprologue s
-  | Label l -> emit_label s l
-  | Asm a -> emit_asm s a
-  | Call c -> emit_call s c
-  | Binop b -> emit_binop s b
-  | Jmp j -> emit_jmp s j
-  | Nop -> Il.smod_emit s "/* nop */"
-  | Prop p -> emit_prop s p
-  | Alloca a -> Il.smod_emit s (Printf.sprintf "/* alloca %%%d %s */" a.dest (Il.ref_ty2str a.ty))
-  | Lea l -> emit_lea s l
+  let needs_newline =
+    match i with
+    | Move m -> emit_move s m;   true
+    | Ret r -> emit_ret s r;     true
+    | Enter x -> fepilogue s x;  true
+    | Leave -> fprologue s;      true
+    | Label l -> emit_label s l; true
+    | Asm a -> emit_asm s a;     true
+    | Call c -> emit_call s c;   true
+    | Binop b -> emit_binop s b; true
+    | Jmp j -> emit_jmp s j;     true
+    | Prop p -> emit_prop s p;   true
+    | Lea l -> emit_lea s l;     true
+    | _ ->                       false (* alloca and nop *)
   in
-  emit_newline s
+  if needs_newline
+  then emit_newline s
+  else ()
 ;;
 
 let emit_insts (s: Il.smod) (is: Il.insts): unit =

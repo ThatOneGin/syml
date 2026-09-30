@@ -7,7 +7,6 @@ test:
 	movq	%rsp,	%rbp
 	subq	$16,	%rsp
 	leaq	.LK0(%rip),	%rax
-/* alloca %0 string */
 	movq	%rax,	-8(%rbp)
 	movq -8(%rbp), %rdi
 	call puts
