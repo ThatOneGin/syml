@@ -401,7 +401,7 @@ let patch_enter (cs: code_State): unit =
       let _n: int ref = ref 0 in
       Hashtbl.iter (fun _ (v: typed_mem) -> 
         let (_, ty) = v in
-        _n := size_of_ref_ty ty) cs.vars;
+        _n := !_n + size_of_ref_ty ty) cs.vars;
       let n = align_vars cs !_n in
       cs.code.(k) <- Enter n
     | _ -> ()
