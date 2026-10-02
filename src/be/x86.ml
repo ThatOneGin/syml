@@ -52,6 +52,16 @@ let getmnemonicsuffix (b: Il.bits): char =
   | Bits64 -> 'q'
 ;;
 
+let bits_of_operand (o: Il.operand): Il.bits =
+  match o with
+  | Mem (_, t) -> Il.bits_of_ref_ty t
+  | Imm (_, t) -> Il.bits_of_ref_ty t
+;;
+
+let suffix_of_operand (o: Il.operand): char =
+  o |> bits_of_operand |> getmnemonicsuffix
+;;
+
 let emit_indent (s: Il.smod): unit = Il.smod_emit s "\t";;
 
 let emit_newline (s: Il.smod): unit = Il.smod_emit s "\n";;
@@ -171,9 +181,10 @@ let emit_arg (s: Il.smod) (a: Il.operand) (i: int): unit =
   match abi.nth_reg_arg abi i with
   | Some r ->
     Il.smod_emit s
-      (Printf.sprintf "\tmovq\t%s,\t%s\n"
-      (emit_operand a)
-      (emit_mem r Bits64))
+      (Printf.sprintf "\tmov%c\t%s,\t%s\n"
+        (suffix_of_operand a)
+        (emit_operand a)
+        (emit_mem r @@ bits_of_operand a))
   | None -> ()
 ;;
 
@@ -186,7 +197,8 @@ let emit_args (s: Il.smod) (a: Il.operand array): unit =
   (* push the rest in the inverse order *)
   for i = len - 1 downto nreg_args do
     Il.smod_emit s
-      (Printf.sprintf "\tpushq\t%s\n"
+      (Printf.sprintf "\tpush%c\t%s\n"
+        (suffix_of_operand a.(i))
         (emit_operand a.(i)))
   done
 ;;
