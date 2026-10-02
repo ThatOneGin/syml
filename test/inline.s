@@ -24,8 +24,8 @@ main:
 	subq	$16,	%rsp
 	movl	$32,	-4(%rbp)
 	movl	$43,	-8(%rbp)
-	movq	-4(%rbp),	%rdi
-	movq	-8(%rbp),	%rsi
+	movl	-4(%rbp),	%edi
+	movl	-8(%rbp),	%esi
 	call	add
 	movl	%eax,	-12(%rbp)
 	movl -12(%rbp), -8(%rbp)
