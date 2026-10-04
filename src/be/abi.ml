@@ -9,6 +9,7 @@ type t = {
     nth_reg_arg: t -> int -> mem option;
     fnarg_regs: int;
     farg_regs: mem list;
+    sizeof: ref_ty -> int;
   }
 
 let rax = 0;;
@@ -30,6 +31,13 @@ let x86_64_nth_reg_arg (a: t) (i: int): Il.mem option =
   List.nth_opt a.farg_regs i
 ;;
 
+let x86_64_sizeof (t: ref_ty): int =
+  match t with
+  | Val_ty b -> bits2size b
+  | Ptr_ty _ | Func_ty -> 8
+  | Nil_ty -> 1
+;;
+
 let create (a: target_arch): t =
   match a with
   | Linux_X86_64 ->
@@ -41,5 +49,6 @@ let create (a: target_arch): t =
       farg_regs = farg_regs;
       fnarg_regs = List.length farg_regs;
       nth_reg_arg = x86_64_nth_reg_arg;
+      sizeof = x86_64_sizeof;
     }
 ;;

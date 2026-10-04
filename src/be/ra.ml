@@ -8,6 +8,7 @@ open Common
 type ctxt = {
     opts: Comp_state.t;
     smod: smod;
+    abi: Abi.t;
     nregs: int; (* number of registers *)
     mutable sp: int; (* stack pointer *)
     mutable reg: int; (* first available register *)
@@ -17,6 +18,7 @@ type ctxt = {
 let ctxt_new (opts: Comp_state.t) (smod: smod): ctxt =
   {opts = opts;
    smod = smod;
+   abi = Abi.create smod.arch;
    nregs = (Il.get_arch_nregister smod.arch);
    sp = 0;
    reg = 0;
@@ -42,8 +44,8 @@ let ctxt_alloc_vreg (ctxt: ctxt): mem =
 ;;
 
 (* named variables stay preferably at the stack *)
-let reserve_var (ctxt: ctxt) (t: bits): mem =
-  ctxt_stack_alloc ctxt (bits2size t);
+let reserve_var (ctxt: ctxt) (t: ref_ty): mem =
+  ctxt_stack_alloc ctxt (ctxt.abi.sizeof t);
   let sp = ctxt.sp in
   Stack sp
 ;;
@@ -198,8 +200,7 @@ let regalloc (ctxt: ctxt) (is: insts): insts =
   Array.iteri (fun i v ->
     match v with (* check for alloca *)
     | Alloca a -> 
-      let bits_ty = bits_of_ref_ty a.ty in
-      let dest = reserve_var ctxt bits_ty in
+      let dest = reserve_var ctxt a.ty in
       Hashtbl.add vreg_to_spill a.dest dest;
       new_insts.(i) <- v
     | _ -> 
