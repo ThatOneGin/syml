@@ -1,7 +1,8 @@
+extern def puts(str): nil
+
 def test(): nil {
-  let x: str = "Hello, world!\n"
-  asm("movq {0}, %rdi": [x])
-  asm("call puts")
+  let x: str = "Hello, world!"
+  puts(x)
 }
 
 def main() {

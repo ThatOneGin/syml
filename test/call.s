@@ -8,8 +8,8 @@ test:
 	subq	$16,	%rsp
 	leaq	.LK0(%rip),	%rax
 	movq	%rax,	-8(%rbp)
-	movq -8(%rbp), %rdi
-	call puts
+	movq	-8(%rbp),	%rdi
+	call	puts
 .LC1:
 	leave
 	ret
@@ -30,4 +30,4 @@ main:
 .size	main,	.-main
 .section	.rodata
 .LK0:
-	.asciz	"Hello, world!\n"
+	.asciz	"Hello, world!"
