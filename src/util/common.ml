@@ -61,3 +61,20 @@ let ints_get (is: ints) (i: int): int =
   assert (i >= 0);
   is.data.(i)
 ;;
+
+(* round integer n a multiple of x *)
+let round n x =
+  if n mod x = 0
+  then n
+  else (n + (x - 1)) land (lnot (x - 1))
+;;
+
+(* List.fold_left with index *)
+let fold_lefti f ini li =
+  let _, res =
+    List.fold_left
+      (fun (i, h) t -> (i + 1, f i h t))
+      (0, ini) li
+  in
+  res
+;;

@@ -16,6 +16,17 @@ type ref_ty =
   | Func_ty (* we will probably want this to be typed later *)
   | Nil_ty
 
+(*
+ * Struct layout defined by the abi
+ * (not finished yet, but can be constructed through abi.create_struct)
+ *)
+type struct_layout = {
+    fields: ref_ty list;
+    offsets: int list;
+    align: int;
+    size: int;
+  }
+
 type vreg = int
 type mreg = int
 type stack = int
