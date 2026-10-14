@@ -15,12 +15,13 @@ type ref_ty =
   | Ptr_ty of ref_ty
   | Func_ty (* we will probably want this to be typed later *)
   | Nil_ty
+  | Struct_ty of struct_layout
 
 (*
  * Struct layout defined by the abi
  * (not finished yet, but can be constructed through abi.create_struct)
  *)
-type struct_layout = {
+and struct_layout = {
     fields: ref_ty list;
     offsets: int list;
     align: int;
@@ -125,6 +126,13 @@ type asm = {
     inputs: operand array;
   }
 
+type getfield = {
+    src: operand;
+    dst: operand;
+    ty: ref_ty;
+    idx: int;
+  }
+
 type inst =
   | Alloca of alloca
   | Move of move
@@ -138,6 +146,7 @@ type inst =
   | Binop of binop
   | Jmp of jmp
   | Prop of prop (* assembler stuff (not really an instruction) *)
+  | Getfield of getfield
   | Nop
 and prop =
   | Directive of directive
@@ -282,11 +291,13 @@ let bits_of_ref_ty (rt: ref_ty): bits =
   | Nil_ty -> Bits8
   | Func_ty -> Bits64
   | Ptr_ty _ -> Bits64
+  | Struct_ty _ -> Bits64
 
 let size_of_ref_ty (rt: ref_ty): int =
   match rt with
   | Nil_ty -> 0
   | Val_ty b -> bits2size b
+  | Struct_ty s -> s.size
   | _ -> 8
 
 let ref_of_operand (o: operand): ref_ty =
@@ -316,6 +327,10 @@ let rec ref_ty2str (r: ref_ty): string =
   | Ptr_ty t -> "*" ^ ref_ty2str t
   | Func_ty -> "function"
   | Nil_ty -> "nil"
+  | Struct_ty s ->
+    "{" ^
+      String.concat "," (List.map ref_ty2str s.fields)
+    ^ "}"
 ;;
 
 let reg2str (r: reg): string =
@@ -390,6 +405,9 @@ let inst2str (i: inst): string =
       (op2str b.right)
   | Jmp j -> "\t" ^ jmp2str j
   | Prop _ -> ""
+  | Getfield g ->
+    Printf.sprintf "%s <- getfield %s.(%d)"
+      (op2str g.dst) (op2str g.src) g.idx
   | Nop -> "\tnop"
 ;;
 
@@ -456,5 +474,8 @@ let visit_inst (iv: inst_visitor) (i: inst): inst =
                       right = iv.visit_opr iv b.right;}
   | Jmp j -> Jmp j
   | Prop _ -> i
+  | Getfield g -> Getfield {g with
+                            src = iv.visit_opr iv g.src;
+                            dst = iv.visit_opr iv g.dst;}
   | Nop -> Nop
 ;;

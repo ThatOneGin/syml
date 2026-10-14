@@ -70,17 +70,36 @@ let emit_imm (i: Il.imm): string = Printf.sprintf "$%Ld" i;;
 
 let emit_mem (m: Il.mem) (ty: Il.bits): string =
   match m with
-  | Addr a -> Printf.sprintf "$.LK%d" a
+  | Addr a -> Printf.sprintf "$.LK%d(%%rip)" a
   | Reg r -> "%" ^ getreg ty r
   | Stack s -> Printf.sprintf "%d(%%rbp)" s
   | Name n ->
     n.symbol ^ (if n.extern then "@GOTPCREL(%rip)" else "(%rip)")
 ;;
 
+let emit_mem_offset (o: int) (m: Il.mem) (ty: Il.bits): string =
+  match m with
+  | Addr a -> Printf.sprintf ".LK%d+%d(%%rip)" a o
+  | Reg r -> Printf.sprintf "%d(%%%s)" getreg ty r
+  | Stack s -> Printf.sprintf "%d(%%rbp)" (o + s)
+  | Name n ->
+    n.symbol ^
+      (if n.extern
+       then Printf.sprintf "@GOTPCREL+%d(%%rip)" o
+       else Printf.sprintf "+%d(%%rip)" o)
+;;
+
+
 let emit_operand (o: Il.operand): string =
   match o with
   | Mem (m, t) -> emit_mem m (Il.bits_of_ref_ty t)
   | Imm (i, _) -> emit_imm i
+;;
+
+let emit_operand_offset (off: int) (o: Il.operand): string =
+  match o with
+  | Mem (m, t) -> emit_mem_offset off m (Il.bits_of_ref_ty t)
+  | Imm (i, _) -> emit_imm (Int64.add (Int64.of_int off) i)
 ;;
 
 let get_cond_suffix (o: Ast.operator) (swap: bool): string =
@@ -296,21 +315,34 @@ let emit_prop (s: Il.smod) (p: Il.prop): unit =
   | Section se -> emit_section s se
 ;;
 
+let emit_getfield (s: Il.smod) (g: Il.getfield): unit =
+  let off =
+    match g.ty with
+    | Struct_ty s -> List.nth s.offsets g.idx
+    | _ -> 0
+  in
+  let src = emit_operand_offset off g.src in
+  let dst = emit_operand g.dst in
+  let suf = suffix_of_operand g.src in
+  Il.smod_emit s (Printf.sprintf "\tmov%c\t%s, %s" suf src dst)
+;;
+
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   let needs_newline =
     match i with
-    | Move m -> emit_move s m;   true
-    | Ret r -> emit_ret s r;     true
-    | Enter x -> fepilogue s x;  true
-    | Leave -> fprologue s;      true
-    | Label l -> emit_label s l; true
-    | Asm a -> emit_asm s a;     true
-    | Call c -> emit_call s c;   true
-    | Binop b -> emit_binop s b; true
-    | Jmp j -> emit_jmp s j;     true
-    | Prop p -> emit_prop s p;   true
-    | Lea l -> emit_lea s l;     true
-    | _ ->                       false (* alloca and nop *)
+    | Move m -> emit_move s m;         true
+    | Ret r -> emit_ret s r;           true
+    | Enter x -> fepilogue s x;        true
+    | Leave -> fprologue s;            true
+    | Label l -> emit_label s l;       true
+    | Asm a -> emit_asm s a;           true
+    | Call c -> emit_call s c;         true
+    | Binop b -> emit_binop s b;       true
+    | Jmp j -> emit_jmp s j;           true
+    | Prop p -> emit_prop s p;         true
+    | Lea l -> emit_lea s l;           true
+    | Getfield g -> emit_getfield s g; true
+    | _ ->                             false (* alloca and nop *)
   in
   if needs_newline
   then emit_newline s

@@ -38,12 +38,14 @@ module Abi_x86 = struct
     | Val_ty b -> bits2size b
     | Ptr_ty _ | Func_ty -> 8
     | Nil_ty -> 1
+    | Struct_ty s -> s.size
   ;;
 
   let alignof = function
     | Val_ty b -> bits2size b
     | Ptr_ty _ | Func_ty -> 8
     | Nil_ty -> 1
+    | Struct_ty s -> s.align
   ;;
 
   let align_of_list (li: ref_ty list): int =
