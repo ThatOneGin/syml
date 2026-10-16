@@ -80,7 +80,7 @@ let emit_mem (m: Il.mem) (ty: Il.bits): string =
 let emit_mem_offset (o: int) (m: Il.mem) (ty: Il.bits): string =
   match m with
   | Addr a -> Printf.sprintf ".LK%d+%d(%%rip)" a o
-  | Reg r -> Printf.sprintf "%d(%%%s)" getreg ty r
+  | Reg r -> Printf.sprintf "%d(%%%s)" o (getreg ty r)
   | Stack s -> Printf.sprintf "%d(%%rbp)" (o + s)
   | Name n ->
     n.symbol ^
