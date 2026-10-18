@@ -66,6 +66,7 @@ type alloca = {
 type move = {
     dest: mem;
     src: operand;
+    bits: bits;
   }
 
 type ltype =
@@ -435,7 +436,8 @@ let standard_visitor =
 let visit_inst (iv: inst_visitor) (i: inst): inst =
   match i with
   | Alloca _ -> i (* pseudo-instruction *)
-  | Move m -> Move {dest = iv.visit_mem iv m.dest;
+  | Move m -> Move {m with
+                    dest = iv.visit_mem iv m.dest;
                     src = iv.visit_opr iv m.src}
   | Ret r -> Ret {r with
                   value = iv.visit_opr iv r.value;}

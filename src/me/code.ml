@@ -65,11 +65,13 @@ let cs_code (cs: code_State) (i: inst): unit =
 
 let cs_move
   (cs: code_State)
+  (bits: bits)
   (dest: mem)
   (src: operand): unit =
   cs_code cs (Move {
     dest = dest;
     src = src;
+    bits = bits;
   })
 ;;
 
@@ -224,8 +226,9 @@ let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop (l, o, r) ->
     let ty = ref_of_type cs cs.ty in
+    let bits = bits_of_ref_ty ty in
     let dst = ctxt_alloc_vreg cs.ctxt in
-    cs_move cs dst @@ code_exp cs l true; (* move the left hand *)
+    cs_move cs bits dst @@ code_exp cs l true; (* move the left hand *)
     cs_binop cs (Il.Mem (dst, ty)) (code_exp cs r true) o cs.ty return_val;
     Il.Mem (dst, ty)
   | _ -> unreachable "Codegen" "expected binary expression";
@@ -278,6 +281,7 @@ let code_ret (cs: code_State) (r: expr): unit =
 
 let code_var (cs: code_State) (v: vard): unit =
   let ty = ref_of_type cs v.ty in
+  let bits = bits_of_ref_ty ty in
   let dest = Ra.ctxt_alloc_vreg cs.ctxt in
   let old_cs_ty = cs.ty in
   cs.ty <- v.ty; (* for code_binopexp *)
@@ -285,7 +289,7 @@ let code_var (cs: code_State) (v: vard): unit =
   cs.ty <- old_cs_ty; (* restore helper *)
   cs_reg_var cs v.name (dest, ty);
   cs_alloca cs v.ty (vreg_of_mem dest);
-  cs_move cs dest op
+  cs_move cs bits dest op
 ;;
 
 let code_vcall (cs: code_State) (c: vcall): unit =

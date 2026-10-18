@@ -162,12 +162,11 @@ let emit_jmp (s: Il.smod) (j: Il.jmp): unit =
 ;;
 
 let emit_move (s: Il.smod) (m: Il.move): unit =
-  let bits = Il.bits_of_ref_ty @@ Il.ref_of_operand m.src in
   Il.smod_emit s
     (Printf.sprintf "\tmov%c\t%s,\t%s"
-      (getmnemonicsuffix bits)
+      (getmnemonicsuffix m.bits)
       (emit_operand m.src)
-      (emit_mem m.dest bits))
+      (emit_mem m.dest m.bits))
 ;;
 
 let emit_ret (s: Il.smod) (r: Il.ret): unit = 
