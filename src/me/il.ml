@@ -127,12 +127,15 @@ type asm = {
     inputs: operand array;
   }
 
-type getfield = {
-    src: operand;
-    dst: operand;
+type field_modifier = {
+    l1: operand;
+    l2: operand;
     ty: ref_ty;
     idx: int;
   }
+
+type getfield = field_modifier
+type setfield = field_modifier
 
 type inst =
   | Alloca of alloca
@@ -148,6 +151,7 @@ type inst =
   | Jmp of jmp
   | Prop of prop (* assembler stuff (not really an instruction) *)
   | Getfield of getfield
+  | Setfield of setfield
   | Nop
 and prop =
   | Directive of directive
@@ -386,8 +390,11 @@ let inst2str (i: inst): string =
   | Jmp j -> "\t" ^ jmp2str j
   | Prop _ -> ""
   | Getfield g ->
-    Printf.sprintf "%s <- getfield %s.(%d)"
-      (op2str g.dst) (op2str g.src) g.idx
+    Printf.sprintf "\t%s <- getfield %s.(%d)"
+      (op2str g.l1) (op2str g.l2) g.idx
+  | Setfield s ->
+    Printf.sprintf "\t%s.(%d) <- %s"
+      (op2str s.l1) s.idx (op2str s.l2)
   | Nop -> "\tnop"
 ;;
 
@@ -455,8 +462,11 @@ let visit_inst (iv: inst_visitor) (i: inst): inst =
                       right = iv.visit_opr iv b.right;}
   | Jmp j -> Jmp j
   | Prop _ -> i
+  | Setfield s -> Setfield {s with
+                            l1 = iv.visit_opr iv s.l1;
+                            l2 = iv.visit_opr iv s.l2;}
   | Getfield g -> Getfield {g with
-                            src = iv.visit_opr iv g.src;
-                            dst = iv.visit_opr iv g.dst;}
+                            l1 = iv.visit_opr iv g.l1;
+                            l2 = iv.visit_opr iv g.l2;}
   | Nop -> Nop
 ;;

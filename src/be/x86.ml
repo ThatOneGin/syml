@@ -314,34 +314,36 @@ let emit_prop (s: Il.smod) (p: Il.prop): unit =
   | Section se -> emit_section s se
 ;;
 
-let emit_getfield (s: Il.smod) (g: Il.getfield): unit =
+let emit_field_modifier (s: Il.smod) (set: bool) (f: Il.field_modifier): unit =
   let off =
-    match g.ty with
-    | Struct_ty s -> List.nth s.offsets g.idx
+    match f.ty with
+    | Struct_ty s -> List.nth s.offsets f.idx
     | _ -> 0
   in
-  let src = emit_operand_offset off g.src in
-  let dst = emit_operand g.dst in
-  let suf = suffix_of_operand g.src in
-  Il.smod_emit s (Printf.sprintf "\tmov%c\t%s, %s" suf src dst)
+  let l1 = emit_operand_offset off f.l1 in
+  let l2 = emit_operand f.l2 in
+  let suf = suffix_of_operand f.l1 in
+  if set then Il.smod_emit s (Printf.sprintf "\tmov%c\t%s, %s" suf l2 l1)
+  else Il.smod_emit s (Printf.sprintf "\tmov%c\t%s, %s" suf l1 l2)
 ;;
 
 let emit_inst (s: Il.smod) (i: Il.inst): unit =
   let needs_newline =
     match i with
-    | Move m -> emit_move s m;         true
-    | Ret r -> emit_ret s r;           true
-    | Enter x -> fepilogue s x;        true
-    | Leave -> fprologue s;            true
-    | Label l -> emit_label s l;       true
-    | Asm a -> emit_asm s a;           true
-    | Call c -> emit_call s c;         true
-    | Binop b -> emit_binop s b;       true
-    | Jmp j -> emit_jmp s j;           true
-    | Prop p -> emit_prop s p;         true
-    | Lea l -> emit_lea s l;           true
-    | Getfield g -> emit_getfield s g; true
-    | _ ->                             false (* alloca and nop *)
+    | Move m -> emit_move s m;                 true
+    | Ret r -> emit_ret s r;                   true
+    | Enter x -> fepilogue s x;                true
+    | Leave -> fprologue s;                    true
+    | Label l -> emit_label s l;               true
+    | Asm a -> emit_asm s a;                   true
+    | Call c -> emit_call s c;                 true
+    | Binop b -> emit_binop s b;               true
+    | Jmp j -> emit_jmp s j;                   true
+    | Prop p -> emit_prop s p;                 true
+    | Lea l -> emit_lea s l;                   true
+    | Getfield g -> emit_field_modifier s false g;   true
+    | Setfield sf -> emit_field_modifier s true sf; true
+    | _ ->                                     false (* alloca and nop *)
   in
   if needs_newline
   then emit_newline s

@@ -159,6 +159,20 @@ let cs_reg_glob
   Hashtbl.replace cs.glob name loc
 ;;
 
+let cs_setfield
+  (cs: code_State)
+  (l2: operand)
+  (l1: operand)
+  (ty: ref_ty)
+  (idx: int): unit =
+  cs_code cs (Setfield {
+    l2 = l2;
+    l1 = l1;
+    ty = ty;
+    idx = idx;
+  })
+;;
+
 let code_enter (cs: code_State): unit = cs_code cs (Enter (-1L)); ();;
 let code_leave (cs: code_State): unit = cs_code cs Leave; ();;
 
@@ -289,7 +303,12 @@ let code_var (cs: code_State) (v: vard): unit =
   cs.ty <- old_cs_ty; (* restore helper *)
   cs_reg_var cs v.name (dest, ty);
   cs_alloca cs v.ty (vreg_of_mem dest);
-  cs_move cs bits dest op
+  match ty with
+  | Struct_ty s when s.size > 8 ->
+    List.iteri (fun i f -> 
+      cs_setfield cs op (Mem (dest, f)) ty i
+    ) s.fields
+  | _ -> cs_move cs bits dest op
 ;;
 
 let code_vcall (cs: code_State) (c: vcall): unit =
