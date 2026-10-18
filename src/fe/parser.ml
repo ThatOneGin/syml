@@ -244,7 +244,23 @@ let rec parse_type (ps: parser_State): Dtypes.datatype =
   | TK_i32 -> ps_next ps; Dtypes.I32
   | TK_i64 -> ps_next ps; Dtypes.I64
   | TK_star -> ps_next ps; Dtypes.Ptr (parse_type ps)
+  | TK_lbrace -> parse_struct_lit ps
   | _ -> ps_unexpected ps "valid type specifier."
+and parse_struct_lit (ps: parser_State): Dtypes.datatype =
+  let li = ref [] in
+  let rec aux () =
+    let name = parse_name_as_string ps in
+    ps_expect_sym ps TK_colon "':'";
+    let ty = parse_type ps in
+    li := !li @ [(name, ty)];
+    match ps.peek with
+    | TK_comma -> ps_next ps; aux ()
+    | _ -> ()
+  in
+  ps_expect_sym ps TK_lbrace "'{'";
+  aux ();
+  ps_expect_sym ps TK_rbrace "'}' to close struct literal";
+  Dtypes.Struct !li
 ;;
 
 (* var = 'let' ident '=' expr *)

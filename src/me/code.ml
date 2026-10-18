@@ -20,6 +20,33 @@ type code_State = {
     glob: (string, typed_mem) Hashtbl.t;
   }
 
+(* auxiliary functions *)
+
+let rec ref_of_type (cs: code_State) (ty: Dtypes.datatype): ref_ty =
+  match ty with
+  | Int -> int_t
+  | I8 -> i8_t
+  | I16 -> i16_t
+  | I32 -> i32_t
+  | I64 -> i64_t
+  | Ptr t -> ptr_t @@ ref_of_type cs t
+  | Str -> str_t
+  | Nil -> nil_t
+  | Fptr _ -> fptr_t
+  | Struct s ->
+    let li = List.map (fun (_, t) -> ref_of_type cs t) s in
+    Struct_ty (cs.abi.create_struct li)
+;;
+
+let type2bits (ty: Dtypes.datatype): bits =
+  match ty with
+  | I32 | Int -> Bits32
+  | Struct _ | Fptr _ | Ptr _ | I64 | Str -> Bits64
+  | Nil | I8 -> Bits8
+  | I16 -> Bits16
+;;
+
+
 let cs_new (opts: Comp_state.t) (smod: smod): code_State = {
     opts = opts;
     abi = Abi.create opts.target;
@@ -51,7 +78,7 @@ let cs_alloca
   (ty: Dtypes.datatype)
   (dest: vreg): unit =
   cs_code cs (Alloca {
-    ty = ref_of_type ty;
+    ty = ref_of_type cs ty;
     dest = dest;
   })
 ;;
@@ -196,7 +223,7 @@ let code_primexp (cs: code_State) (e: expr): operand =
 let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop (l, o, r) ->
-    let ty = ref_of_type cs.ty in
+    let ty = ref_of_type cs cs.ty in
     let dst = ctxt_alloc_vreg cs.ctxt in
     cs_move cs dst @@ code_exp cs l true; (* move the left hand *)
     cs_binop cs (Il.Mem (dst, ty)) (code_exp cs r true) o cs.ty return_val;
@@ -214,7 +241,7 @@ and code_call (cs: code_State) (e: expr): operand =
     let il_call_caller = code_exp cs caller true in
     let il_call_args = code_args cs args in
     cs_call cs il_call_caller il_call_args;
-    Mem (Reg (Mreg 0), ref_of_type cs.ty)
+    Mem (Reg (Mreg 0), ref_of_type cs cs.ty)
   | _ -> unreachable "Codegen" "expected call expression";
 
 and code_args (* helper *)
@@ -244,13 +271,13 @@ let code_glob_exp (cs: code_State) (name: string) (e: expr): operand =
 
 let code_ret (cs: code_State) (r: expr): unit =
   let op = (code_exp cs r true) in
-  cs_code cs (Ret {ty = ref_of_type cs.ty;
+  cs_code cs (Ret {ty = ref_of_type cs cs.ty;
                   value = op;
                   pc = 0;})
 ;;
 
 let code_var (cs: code_State) (v: vard): unit =
-  let ty = ref_of_type v.ty in
+  let ty = ref_of_type cs v.ty in
   let dest = Ra.ctxt_alloc_vreg cs.ctxt in
   let old_cs_ty = cs.ty in
   cs.ty <- v.ty; (* for code_binopexp *)
@@ -306,7 +333,7 @@ let code_param
   (cs: code_State)
   (p: param)
   (i: int): unit =
-  let ty = ref_of_type p.ty in
+  let ty = ref_of_type cs p.ty in
   let dest = 
     match cs.abi.nth_reg_arg cs.abi i with
     | Some r -> r
@@ -350,7 +377,7 @@ let code_func (cs: code_State) (f: funct): unit =
 ;;
 
 let code_globvar (cs: code_State) (v: vard): unit =
-  let ty = ref_of_type v.ty in
+  let ty = ref_of_type cs v.ty in
   let _ = code_glob cs v.name (code_const_exp v.value) ty in
   let name: Il.name = {
     symbol = v.name;
@@ -361,7 +388,7 @@ let code_globvar (cs: code_State) (v: vard): unit =
 ;;
 
 let code_extern (cs: code_State) (e: extern): unit =
-  let ty = ref_of_type e.ty in
+  let ty = ref_of_type cs e.ty in
   let symbol =
     match e.altname with
     | Some s -> s

@@ -140,9 +140,14 @@ and typeof_expr (ts: type_State) (e: expr): datatype =
   | Call (caller, args) -> check_call ts caller args
 ;;
 
+let check_initializer (t1: datatype) (ini: datatype): bool =
+  match (t1, ini) with
+  | (Struct _, Int) -> true
+  | _ -> equal t1 ini
+
 let check_vard (ts: type_State) (v: vard): unit =
   let texp = typeof_expr ts v.value in
-  if not (equal v.ty texp) then
+  if not (check_initializer v.ty texp) then
     type_error
     (Printf.sprintf
       "variable type mismatch (%s != %s)"

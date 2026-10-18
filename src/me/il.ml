@@ -256,27 +256,6 @@ let (nil_t:ref_ty) = Nil_ty;;
 let (fptr_t:ref_ty) = Func_ty;;
 let ptr_t (t:ref_ty): ref_ty = Ptr_ty t
 
-let rec ref_of_type (ty: Dtypes.datatype): ref_ty =
-  match ty with
-  | Int -> int_t
-  | I8 -> i8_t
-  | I16 -> i16_t
-  | I32 -> i32_t
-  | I64 -> i64_t
-  | Ptr t -> ptr_t @@ ref_of_type t
-  | Str -> str_t
-  | Nil -> nil_t
-  | Fptr _ -> fptr_t
-;;
-
-let type2bits (ty: Dtypes.datatype): bits =
-  match ty with
-  | I32 | Int -> Bits32
-  | Fptr _ | Ptr _ | I64 | Str -> Bits64
-  | Nil | I8 -> Bits8
-  | I16 -> Bits16
-;;
-
 let bits2size (b: bits): int =
   match b with
   | Bits8 -> 1
