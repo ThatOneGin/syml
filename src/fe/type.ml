@@ -71,6 +71,19 @@ let compile_to_name (e: Ast.expr): string option =
   | _ -> None
 ;;
 
+let find_field_by_name (s: (string * datatype) list) (field: field): datatype =
+  List.iteri (fun i (v, _) -> if v = field.name then field.idx <- i else ()) s;
+  match field.idx with
+  | -1 ->
+    type_error
+      (Printf.sprintf
+        "no field %s in struct %s"
+        field.name (type2str (Struct s)))
+  | _ ->
+    let (_, ty) = List.nth s field.idx in
+    ty
+;;
+
 let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
   let (lhs, op, rhs) = match b with
     | Binop (lhs, op, rhs) -> (lhs, op, rhs)
@@ -131,6 +144,16 @@ and check_call
       (Printf.sprintf
         "invalid caller value (type %s, name %s)"
         (type2str t) name)
+and check_field_access (ts: type_State) (lhs: expr) (field: field): datatype =
+  let lty = typeof_expr ts lhs in
+  match lty with
+  | Ptr (Struct s) | Struct s -> find_field_by_name s field
+  | _ ->
+    type_error
+      (Printf.sprintf
+        "Field access can only be done with structs and not with %s"
+        (type2str lty))
+    (* this error is so bad *)
 and typeof_expr (ts: type_State) (e: expr): datatype =
   match e with
   | Number _ -> Int
@@ -138,6 +161,7 @@ and typeof_expr (ts: type_State) (e: expr): datatype =
   | Ident s -> ts_query_symbol ts s
   | Binop _ -> check_binop ts e
   | Call (caller, args) -> check_call ts caller args
+  | Fieldaccess (lhs, field) -> check_field_access ts lhs field
 ;;
 
 let check_initializer (t1: datatype) (ini: datatype): bool =

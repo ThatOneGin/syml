@@ -3,6 +3,11 @@
  *  Syml's abstract syntax tree
  *)
 
+type field = {
+  mutable idx: int;
+  name: string;
+}
+
 type operator =
   | OADD | OSUB | ODIV | OMUL | OEQU | ONEQ | OINVALID
 type expr =
@@ -11,6 +16,7 @@ type expr =
   | Binop of (expr * operator * expr)
   | Ident of string
   | Call of (expr * expr array)
+  | Fieldaccess of (expr * field)
 type stat =
   | Var of vard
   | Return of expr

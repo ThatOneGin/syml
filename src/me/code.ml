@@ -159,6 +159,7 @@ let cs_reg_glob
   Hashtbl.replace cs.glob name loc
 ;;
 
+(* value dest index *)
 let cs_setfield
   (cs: code_State)
   (l2: operand)
@@ -166,6 +167,21 @@ let cs_setfield
   (ty: ref_ty)
   (idx: int): unit =
   cs_code cs (Setfield {
+    l2 = l2;
+    l1 = l1;
+    ty = ty;
+    idx = idx;
+  })
+;;
+
+(* dest value index *)
+let cs_getfield
+  (cs: code_State)
+  (l2: operand)
+  (l1: operand)
+  (ty: ref_ty)
+  (idx: int): unit =
+  cs_code cs (Getfield {
     l2 = l2;
     l1 = l1;
     ty = ty;
@@ -250,6 +266,7 @@ and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop _ -> code_binopexp cs e return_val
   | Call _ -> code_call cs e
+  | Fieldaccess (e, f) -> code_field cs e f
   | _ -> code_primexp cs e
 
 and code_call (cs: code_State) (e: expr): operand =
@@ -283,6 +300,19 @@ and code_args (* helper *)
       args := Array.append !args [|code_arg cs e|]
     ) a;
   !args
+
+and code_field (cs: code_State)(e: Ast.expr) (f: Ast.field): operand =
+  assert (f.idx > -1);
+  let s = code_exp cs e true in
+  let oty = ref_of_operand s in
+  let dest = Ra.ctxt_alloc_vreg cs.ctxt in
+  match oty with
+  | Struct_ty t ->
+    let fty = List.nth t.fields f.idx in
+    let odest = (Mem (dest, fty)) in
+    cs_getfield cs odest s oty f.idx;
+    odest
+  | _ -> unreachable "codegen" "code_field"
 ;;
 
 let code_const_exp (e: expr): const =

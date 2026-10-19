@@ -63,6 +63,7 @@ let ps_tk2str (ps: parser_State): string =
   | TK_colon -> "<:>"
   | TK_semicolon -> "<;>"
   | TK_comma -> "<,>"
+  | TK_dot -> "<.>"
   | TK_EOF -> "<EOF>"
 ;;
 
@@ -176,6 +177,17 @@ and parse_suffixedexpr (ps: parser_State): Ast.expr =
     match ps.peek with
     | TK_lparen ->
       let tmp_e = parse_call ps !e in
+      e := tmp_e;
+      aux ()
+    | TK_dot ->
+      ps_next ps;
+      let name = parse_name_as_string ps in
+      let field: Ast.field = {
+          name = name;
+          idx = -1;
+        }
+      in
+      let tmp_e = Ast.Fieldaccess (!e, field) in
       e := tmp_e;
       aux ()
     | _ -> ()

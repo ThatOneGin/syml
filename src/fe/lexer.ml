@@ -41,7 +41,7 @@ type token =
   | TK_lbracket | TK_rbracket
   | TK_equals | TK_colon
   | TK_semicolon
-  | TK_comma
+  | TK_comma | TK_dot
   | TK_EOF
 
 type lex_State = {
@@ -199,6 +199,7 @@ let lex_read_char (ls: lex_State): token =
   | '/' -> lex_advance ls; TK_slash
   | ';' -> lex_advance ls; TK_semicolon
   | ',' -> lex_advance ls; TK_comma
+  | '.' -> lex_advance ls; TK_dot
   | _ -> lex_error ls (Printf.sprintf "Unsupported char <%d>" (int_of_char ls.current))
 ;;
 
