@@ -315,14 +315,19 @@ let emit_prop (s: Il.smod) (p: Il.prop): unit =
 ;;
 
 let emit_field_modifier (s: Il.smod) (set: bool) (f: Il.field_modifier): unit =
-  let off =
+  let str =
     match f.ty with
-    | Struct_ty s -> List.nth s.offsets f.idx
-    | _ -> 0
+    | Struct_ty str -> str
+    | _ -> Common.unreachable "" "x86_64"
   in
+  let off = List.nth str.offsets f.idx in
   let l1 = emit_operand_offset off f.l1 in
   let l2 = emit_operand f.l2 in
-  let suf = suffix_of_operand f.l1 in
+  let suf =
+      getmnemonicsuffix @@
+        Il.bits_of_ref_ty
+          (List.nth str.fields f.idx)
+  in
   if set then Il.smod_emit s (Printf.sprintf "\tmov%c\t%s, %s" suf l2 l1)
   else Il.smod_emit s (Printf.sprintf "\tmov%c\t%s, %s" suf l1 l2)
 ;;
