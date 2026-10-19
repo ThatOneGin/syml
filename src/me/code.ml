@@ -260,14 +260,27 @@ and code_call (cs: code_State) (e: expr): operand =
     cs_call cs il_call_caller il_call_args;
     Mem (Reg (Mreg 0), ref_of_type cs cs.ty)
   | _ -> unreachable "Codegen" "expected call expression";
-
+  (*
+   * For structs, we implicitly pass them by reference
+   *)
+and code_arg (cs: code_State) (a: Ast.expr): operand =
+  let op = code_exp cs a true in
+  let ty = ref_of_operand op in
+  match ty with
+  | Struct_ty s ->
+    let dest = Ra.ctxt_alloc_vreg cs.ctxt in
+    let at = ptr_t (Struct_ty s) in
+    let ao = (Mem (dest, at)) in
+    cs_lea cs op dest;
+    ao
+  | _ -> op
 and code_args (* helper *)
   (cs: code_State)
   (a: Ast.expr array): operand array =
   let args = ref [||] in
   Array.iter
     (fun e ->
-      args := Array.append !args [|code_exp cs e true|]
+      args := Array.append !args [|code_arg cs e|]
     ) a;
   !args
 ;;
@@ -288,9 +301,12 @@ let code_glob_exp (cs: code_State) (name: string) (e: expr): operand =
 
 let code_ret (cs: code_State) (r: expr): unit =
   let op = (code_exp cs r true) in
-  cs_code cs (Ret {ty = ref_of_type cs cs.ty;
-                  value = op;
-                  pc = 0;})
+  match cs.ty with
+  | Struct _ -> todo "struct as return values"
+  | _ -> 
+    cs_code cs (Ret {ty = ref_of_type cs cs.ty;
+                    value = op;
+                    pc = 0;})
 ;;
 
 let code_var (cs: code_State) (v: vard): unit =
@@ -304,7 +320,7 @@ let code_var (cs: code_State) (v: vard): unit =
   cs_reg_var cs v.name (dest, ty);
   cs_alloca cs v.ty (vreg_of_mem dest);
   match ty with
-  | Struct_ty s when s.size > 8 ->
+  | Struct_ty s when s.size > (bits2size cs.abi.reg_max_siz) ->
     List.iteri (fun i f -> 
       cs_setfield cs op (Mem (dest, f)) ty i
     ) s.fields
