@@ -46,6 +46,7 @@ let type2bits (ty: Dtypes.datatype): bits =
   | I16 -> Bits16
 ;;
 
+let mangle_name name = "syml." ^ name;;
 
 let cs_new (opts: Comp_state.t) (smod: smod): code_State = {
     opts = opts;
@@ -417,43 +418,45 @@ let code_func_params (cs: code_State) (f: funct): unit =
     code_param cs p i) f.params
 ;;
 
-let func_start (cs: code_State) (f: funct): unit =
+let func_start (cs: code_State) (name: string): unit =
   cs_directive cs Text;
-  cs_directive cs (Global f.name);
-  cs_directive cs (Type (f.name, Lfunction));
+  cs_directive cs (Global (name));
+  cs_directive cs (Type (name, Lfunction));
 ;;
 
-let func_end (cs: code_State) (f: funct): unit =
-  cs_directive cs (Size (f.name ,(".-"^f.name)))
+let func_end (cs: code_State) (name: string): unit =
+  cs_directive cs (Size (name ,(".-"^name)))
 ;;
 
 let code_func (cs: code_State) (f: funct): unit =
+  let symbol_name = mangle_name f.name in
   let name: Il.name = {
-    symbol = f.name;
+    symbol = symbol_name;
     extern = false;
     ty = fptr_t;
   } in
   cs_reg_glob cs f.name (Name name, fptr_t);
-  func_start cs f;
-  code_namedlabel cs f.name;
+  func_start cs symbol_name;
+  code_namedlabel cs symbol_name;
   code_unnamedlabel cs;
   code_enter cs;
   code_func_params cs f;
   Array.iter (fun (s: stat): unit -> code_stat cs s) f.blk.body;
   code_unnamedlabel cs;
   code_leave cs;
-  func_end cs f
+  func_end cs symbol_name
 ;;
 
 let code_globvar (cs: code_State) (v: vard): unit =
+  let symbol_name = mangle_name v.name in
   let ty = ref_of_type cs v.ty in
-  let _ = code_glob cs v.name (code_const_exp v.value) ty in
+  let _ = code_glob cs symbol_name (code_const_exp v.value) ty in
   let name: Il.name = {
-    symbol = v.name;
+    symbol = symbol_name;
     extern = false;
     ty = ty;
   } in
-  cs_reg_var cs v.name (Il.Name name, ty)
+  cs_reg_glob cs v.name (Il.Name name, ty)
 ;;
 
 let code_extern (cs: code_State) (e: extern): unit =
@@ -461,7 +464,7 @@ let code_extern (cs: code_State) (e: extern): unit =
   let symbol =
     match e.altname with
     | Some s -> s
-    | None -> e.name
+    | None -> mangle_name e.name
   in
   let name = {
     symbol = symbol;
