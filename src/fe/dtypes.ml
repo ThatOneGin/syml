@@ -16,6 +16,7 @@ type datatype =
   | Ptr of datatype
   | Fptr of fptr
   | Struct of (string * datatype) list
+  | Name of string
 and fptr = {
     ret: datatype;
     args: datatype list;
@@ -44,6 +45,7 @@ let rec type2str (t: datatype): string =
           (fun (name, ty) ->
             Printf.sprintf "%s: %s" name (type2str ty)) s)
     ^ "}"
+  | Name s -> s
 
 let type_error (what: string): 'a =
   syml_errorf "type error: %s" what

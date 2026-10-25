@@ -21,6 +21,7 @@ type token =
   | TK_while
   | TK_extern
   | TK_as
+  | TK_typedef
 (* types *)
   | TK_nil (* nil is also a keyword *)
   | TK_int
@@ -63,6 +64,7 @@ let reserved_table = [
     ("while", TK_while);
     ("extern", TK_extern);
     ("as", TK_as);
+    ("typedef", TK_typedef);
     ("nil", TK_nil);
     ("int", TK_int);
     ("str", TK_str);

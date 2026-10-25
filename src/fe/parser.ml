@@ -40,6 +40,7 @@ let ps_tk2str (ps: parser_State): string =
   | TK_while -> "<while>"
   | TK_extern -> "<extern>"
   | TK_as -> "<as>"
+  | TK_typedef -> "<typedef>"
   | TK_nil -> "<nil>"
   | TK_int -> "<int>"
   | TK_str -> "<str>"
@@ -257,6 +258,7 @@ let rec parse_type (ps: parser_State): Dtypes.datatype =
   | TK_i64 -> ps_next ps; Dtypes.I64
   | TK_star -> ps_next ps; Dtypes.Ptr (parse_type ps)
   | TK_lbrace -> parse_struct_lit ps
+  | TK_identifier s -> ps_next ps; Dtypes.Name s
   | _ -> ps_unexpected ps "valid type specifier."
 and parse_struct_lit (ps: parser_State): Dtypes.datatype =
   let li = ref [] in
@@ -535,10 +537,18 @@ let parse_extern (ps: parser_State): Ast.toplevel =
   | _ -> ps_unexpected ps "function or variable declaration"
 ;;
 
+let parse_typedef (ps: parser_State): Ast.toplevel =
+  ps_expect_sym ps TK_typedef "'typedef'";
+  let name = parse_name_as_string ps in
+  let ty = parse_type ps in
+  Ast.Typedef (name, ty)
+;;
+
 let parse_toplevel (ps: parser_State): Ast.toplevel =
   match ps.peek with
   | TK_let -> parse_globvar ps
   | TK_def -> parse_func ps
   | TK_extern -> parse_extern ps
+  | TK_typedef -> parse_typedef ps
   | _ -> ps_unexpected ps "variable or function statement"
 ;;
