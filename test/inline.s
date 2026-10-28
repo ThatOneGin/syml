@@ -1,7 +1,7 @@
 .text
-.globl	add
-.type	add,	@function
-add:
+.globl	syml.add
+.type	syml.add,	@function
+syml.add:
 .LC0:
 	pushq	%rbp
 	movq	%rsp,	%rbp
@@ -13,11 +13,11 @@ add:
 .LC1:
 	leave
 	ret
-.size	add,	.-add
+.size	syml.add,	.-syml.add
 .text
-.globl	main
-.type	main,	@function
-main:
+.globl	syml.main
+.type	syml.main,	@function
+syml.main:
 .LC2:
 	pushq	%rbp
 	movq	%rsp,	%rbp
@@ -26,10 +26,10 @@ main:
 	movl	$43,	-8(%rbp)
 	movl	-4(%rbp),	%edi
 	movl	-8(%rbp),	%esi
-	call	add
+	call	syml.add
 	movl	%eax,	-12(%rbp)
 	movl -12(%rbp), -8(%rbp)
 .LC3:
 	leave
 	ret
-.size	main,	.-main
+.size	syml.main,	.-syml.main

@@ -1,7 +1,7 @@
 .text
-.globl	test
-.type	test,	@function
-test:
+.globl	syml.test
+.type	syml.test,	@function
+syml.test:
 .LC0:
 	pushq	%rbp
 	movq	%rsp,	%rbp
@@ -13,21 +13,21 @@ test:
 .LC1:
 	leave
 	ret
-.size	test,	.-test
+.size	syml.test,	.-syml.test
 .text
-.globl	main
-.type	main,	@function
-main:
+.globl	syml.main
+.type	syml.main,	@function
+syml.main:
 .LC2:
 	pushq	%rbp
 	movq	%rsp,	%rbp
-	call	test
+	call	syml.test
 	movl	$0,	%eax
 	jmp	.LC3
 .LC3:
 	leave
 	ret
-.size	main,	.-main
+.size	syml.main,	.-syml.main
 .section	.rodata
 .LK0:
 	.asciz	"Hello, world!"

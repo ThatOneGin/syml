@@ -1,7 +1,7 @@
 .text
-.globl	main
-.type	main,	@function
-main:
+.globl	syml.main
+.type	syml.main,	@function
+syml.main:
 .LC0:
 	pushq	%rbp
 	movq	%rsp,	%rbp
@@ -19,4 +19,4 @@ main:
 .LC2:
 	leave
 	ret
-.size	main,	.-main
+.size	syml.main,	.-syml.main

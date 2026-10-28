@@ -1,4 +1,4 @@
-extern def puts(str): nil
+extern def puts(str): nil as puts
 
 def test(): nil {
   let x: str = "Hello, world!"

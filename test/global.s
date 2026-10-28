@@ -1,11 +1,11 @@
 .text
-.globl	main
-.type	main,	@function
-main:
+.globl	syml.main
+.type	syml.main,	@function
+syml.main:
 .LC0:
 	pushq	%rbp
 	movq	%rsp,	%rbp
-	subq	$32,	%rsp
+	subq	$16,	%rsp
 	leaq	.LK0(%rip),	%rax
 	movq	%rax,	-8(%rbp)
 	movl	$0,	%eax
@@ -13,14 +13,14 @@ main:
 .LC1:
 	leave
 	ret
-.size	main,	.-main
+.size	syml.main,	.-syml.main
 .section	.rodata
 .LK0:
 	.asciz	"constant string"
 .section	.rodata
-x:
+syml.x:
 	.long	46
-y:
+syml.y:
 	.long	65535
-z:
+syml.z:
 	.asciz	"Hello, world!"
