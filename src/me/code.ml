@@ -315,6 +315,15 @@ and code_field (cs: code_State)(e: Ast.expr) (f: Ast.field): operand =
     let odest = (Mem (dest, fty)) in
     cs_getfield cs odest s oty f.idx;
     odest
+  | Ptr_ty (Struct_ty t) ->
+    let bits = bits_of_ref_ty oty in
+    let fty = List.nth t.fields f.idx in
+    let tmp = Ra.ctxt_alloc_vreg cs.ctxt in
+    let otmp = (Mem (tmp, oty)) in
+    let odest = (Mem (dest, fty)) in
+    cs_move cs bits tmp s; (* dereference it first *)
+    cs_getfield cs odest otmp oty f.idx;
+    odest
   | _ -> unreachable "codegen" "code_field"
 ;;
 
@@ -400,16 +409,43 @@ and code_while (cs: code_State) (w: whilestat): unit =
   cs_code cs (get_jmp_from_expr w.cond start_label cond false)
 ;;
 
-(* Register a function parameter in 'vars' *)
+(*
+ * Register a function parameter in 'vars'
+ *
+ * if the argument is in a scratch register
+ * move it to a local variable in the stack,
+ * otherwise, let it where it is
+ *)
 let code_param
   (cs: code_State)
   (p: param)
   (i: int): unit =
-  let ty = ref_of_type cs p.ty in
-  let dest = 
+  let move_arg_to_variable (bits: bits) (ty: ref_ty) (loc: mem) =
+    let d = Ra.ctxt_alloc_vreg cs.ctxt in
+    cs_alloca cs p.ty (vreg_of_mem d);
+    cs_move cs bits d (Mem (loc, ty));
+    d
+  in
+  let ty =
+    (*
+     * struct arguments are implicitly passed by
+     * reference so we need to register then as *struct
+     *)
+    let t_ = ref_of_type cs p.ty in
+    match t_ with
+    | Struct_ty t -> ptr_t (Struct_ty t)
+    | _ -> t_
+  in
+  let bits = bits_of_ref_ty ty in
+  let (need_wrapper, loc) = 
     match cs.abi.nth_reg_arg cs.abi i with
-    | Some r -> r
-    | None -> Stack (16 + (8 * (i - cs.abi.fnarg_regs)))
+    | Some r -> (true, r)
+    | None -> (false, Stack (16 + (8 * (i - cs.abi.fnarg_regs))))
+  in
+  let dest =
+    if need_wrapper
+    then move_arg_to_variable bits ty loc
+    else loc
   in
   cs_reg_var cs p.name @@ (dest, ty)
 ;;

@@ -318,6 +318,7 @@ let emit_field_modifier (s: Il.smod) (set: bool) (f: Il.field_modifier): unit =
   let str =
     match f.ty with
     | Struct_ty str -> str
+    | Ptr_ty (Struct_ty str) -> str (* just pray that it got dereferenced *)
     | _ -> Common.unreachable "" "x86_64"
   in
   let off = List.nth str.offsets f.idx in
