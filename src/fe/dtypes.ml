@@ -15,6 +15,7 @@ type datatype =
   | I64
   | Ptr of datatype
   | Fptr of fptr
+  | Generic of (datatype * datatype)
   | Struct of (string * datatype) list
   | Name of string
 and fptr = {
@@ -38,6 +39,7 @@ let rec type2str (t: datatype): string =
   | I64 -> "i64"
   | Ptr t -> "ptr<" ^ (type2str t) ^ ">"
   | Fptr _ -> "function"
+  | Generic (_, t) -> type2str t
   | Struct s ->
     "{" ^
       String.concat ","

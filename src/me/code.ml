@@ -36,7 +36,7 @@ let rec ref_of_type (cs: code_State) (ty: Dtypes.datatype): ref_ty =
   | Struct s ->
     let li = List.map (fun (_, t) -> ref_of_type cs t) s in
     Struct_ty (cs.abi.create_struct li)
-  | Name _ -> assert false
+  | Generic _ | Name _ -> assert false
 ;;
 
 let type2bits (ty: Dtypes.datatype): bits =
@@ -45,7 +45,7 @@ let type2bits (ty: Dtypes.datatype): bits =
   | Struct _ | Fptr _ | Ptr _ | I64 | Str -> Bits64
   | Nil | I8 -> Bits8
   | I16 -> Bits16
-  | Name _ -> assert false (* unreachable *)
+  | Generic _ | Name _ -> assert false (* unreachable *)
 ;;
 
 let mangle_name name = "syml." ^ name;;
