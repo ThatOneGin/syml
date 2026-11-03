@@ -10,6 +10,7 @@ type t = {
     fnarg_regs: int;
     farg_regs: mem list;
     sizeof: ref_ty -> int;
+    alignof: ref_ty -> int;
     create_struct: ref_ty list -> struct_layout;
     reg_max_siz: bits;
   }
@@ -107,6 +108,7 @@ module Abi_x86 = struct
       fnarg_regs = List.length farg_regs;
       nth_reg_arg = nth_reg_arg;
       sizeof = sizeof;
+      alignof = alignof;
       create_struct = create_struct;
       reg_max_siz = Bits64;
     }

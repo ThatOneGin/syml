@@ -363,16 +363,21 @@ let emit_insts (s: Il.smod) (is: Il.insts): unit =
   Array.iter iterator is;
 ;;
 
-let rec emit_const (s: Il.smod) (name: string) (k: Il.const): unit =
+let rec emit_const (s: Il.smod) (k: Il.const): unit =
   match k with
-  | K_string str -> emit_const_string s name str
-  | K_integer (int, bits) -> emit_const_int s name int bits
+  | K_string str -> emit_const_string s str
+  | K_integer (int, bits) -> emit_const_int s int bits
+  | K_type (name_id, ty) -> emit_const_type s name_id ty
 
-and emit_const_string (s: Il.smod) (name: string) (str: string): unit =
+and emit_const_string (s: Il.smod) (str: string): unit =
   Il.smod_emit s
-    (Printf.sprintf "%s:\n\t.asciz\t\"%s\"\n" name str)
+    (Printf.sprintf "\t.asciz\t\"%s\"\n" str)
 
-and emit_const_int (s: Il.smod) (name: string) (i: int64) (b: Il.bits): unit =
+and emit_const_string_ref (s: Il.smod) (str: int): unit =
+  Il.smod_emit s
+    (Printf.sprintf "\t.quad .LK%d" str)
+
+and emit_const_int (s: Il.smod) (i: int64) (b: Il.bits): unit =
   let directive =
     match b with
     | Bits8 -> ".byte"
@@ -381,7 +386,13 @@ and emit_const_int (s: Il.smod) (name: string) (i: int64) (b: Il.bits): unit =
     | Bits64 -> ".quad"
   in
   Il.smod_emit s
-    (Printf.sprintf "%s:\n\t%s\t%Ld\n" name directive i)
+    (Printf.sprintf "\t%s\t%Ld\n" directive i)
+and emit_const_type (s: Il.smod) (name_id: int) (t: Il.ref_ty): unit =
+  let t_sizeof = Int64.of_int @@ abi.sizeof t in
+  let t_alignof = Int64.of_int @@ abi.alignof t in
+  emit_const_int s t_sizeof Bits64;
+  emit_const_int s t_alignof Bits64;
+  emit_const_string_ref s name_id
 ;;
 
 let emit_constants (s: Il.smod): unit =
@@ -390,7 +401,8 @@ let emit_constants (s: Il.smod): unit =
     if i >= len then ()
     else
       let const = Array.get s.constants i in
-      emit_const s (Printf.sprintf ".LK%d" i) const;
+      Il.smod_emit s (Printf.sprintf ".LK%d:\n" i);
+      emit_const s  const;
       aux (i + 1)
   in
   if len > 0 then Il.smod_emit s ".section\t.rodata\n"
@@ -403,7 +415,8 @@ let emit_globals (s: Il.smod): unit =
     if i >= len then ()
     else
       let (name, const) = Array.get s.globals i in
-      emit_const s name const;
+      Il.smod_emit s (Printf.sprintf "%s:\n" name);
+      emit_const s const;
       aux (i + 1)
   in
   if len > 0 then Il.smod_emit s ".section\t.rodata\n"

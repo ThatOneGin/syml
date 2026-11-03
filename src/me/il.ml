@@ -170,6 +170,14 @@ type insts = inst array
 type const =
   | K_string of string
   | K_integer of (int64 * bits)
+  (*
+   * This is a constant type descriptor. In the generated assembly,
+   * it is a structure that has 3 fields in this respective order:
+   * - size: the total size of the given type
+   * - align: alignment of the type
+   * - id/name: a string containing the name of the type
+   *)
+  | K_type of (int * ref_ty) (* id, type *)
 
 type smod = {
     modname: string;
@@ -242,6 +250,12 @@ let smod_push_const (s: smod) (k: const): int =
   | None ->
     s.constants <- Array.append s.constants [|k|]; 
     len
+;;
+
+(* could be really nice if it didn't need a 'name' parameter *)
+let smod_push_tydesc_const (s: smod) (name: string) (t: ref_ty): int =
+  let name_id = smod_push_const s (K_string name) in
+  smod_push_const s (K_type (name_id, t))
 ;;
 
 let smod_push_global (s: smod) (name: string) (k: const): int =
