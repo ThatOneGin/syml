@@ -126,11 +126,13 @@ let cs_asm (cs: code_State) (code: string) (inputs: operand array): unit =
   })
 ;;
 
+(*
 let cs_section
   (cs: code_State)
   (se: string list): unit
   = cs_code cs (Prop (Section se))
 ;;
+*)
 
 let cs_directive (cs: code_State) (d: directive) =
   cs_code cs (Prop (Directive d))
@@ -334,12 +336,14 @@ let code_const_exp (e: expr): const =
   | _ -> unreachable "" ""
 ;;
 
+(*
 let code_glob_exp (cs: code_State) (name: string) (e: expr): operand =
   match e with
   | String s -> code_glob cs name (K_string s) str_t
   | Number i -> code_glob cs name (K_integer (Int64.of_int i, Bits32)) i32_t
   | _ -> unreachable "" ""
 ;;
+*)
 
 let code_ret (cs: code_State) (r: expr): unit =
   let op = (code_exp cs r true) in
@@ -566,4 +570,17 @@ let cs_toplevel (cs: code_State) (t: toplevel): unit =
   | Globvar v -> code_globvar cs v
   | Extern e -> code_extern cs e
   | _ -> () (* compile-time constructs *)
+;;
+
+let cs_emit_module (cs: code_State) (n: string) (m: ast_mod): unit =
+  smod_open_out cs.smod (n ^ ".s");
+  (* reminder: change this when we support more architectures *)
+  List.iter (fun t ->
+    cs_toplevel cs t;
+    (if Array.length cs.code > 0 then
+      X86.emit_insts cs.smod (cs_finish cs))
+  ) m;
+  X86.emit_constants cs.smod;
+  X86.emit_globals cs.smod;
+  smod_close_out cs.smod
 ;;

@@ -70,8 +70,11 @@ and extern = {
     mutable ty: Dtypes.datatype;
   }
 
+type ast_mod = toplevel list
+
 let block_append (b: block) (s: stat): unit =
   b.body <- Array.append b.body [|s|]; ()
+;;
 
 type ast_visitor = {
     visit_expr: ast_visitor -> expr -> unit;

@@ -9,30 +9,20 @@ open Parser
 open Code
 open Il
 open Ast
-open X86
 open Type
 open Typeutils
 open Resolve
 
 let dostring (opts: Comp_state.t) (name: string) (s: string): unit =
-  let ls: lex_State = lex_new name s in
-  let ps: parser_State = ps_new ls in
+  let _mod: ast_mod = parse name s in
   let ts: type_State = ts_new None in
   let rs: resolve_State = rs_new () in
   let smod: smod = smod_create name opts.target in
   let cs: code_State = cs_new opts smod in
-  smod_open_out smod (name ^ ".s");
-  while ps.peek != TK_EOF do
-    let t: toplevel = parse_toplevel ps in
-    rs_main rs t;
-    check_toplevel ts t;
-    cs_toplevel cs t;
-    (if Array.length cs.code > 0
-    then emit_insts smod (cs_finish cs));
-  done;
-  emit_constants smod;
-  emit_globals smod;
-  smod_close_out smod
+
+  rs_resolve_module rs _mod;
+  ts_check_module ts _mod;
+  cs_emit_module cs name _mod
 ;;
 
 let dofile (opts: Comp_state.t) (filename: string): unit =

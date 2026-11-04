@@ -207,3 +207,7 @@ let check_toplevel (ts: type_State) (f: toplevel): unit =
     ts_reg_symbol ts e.name e.ty
   | _ -> ()
 ;;
+
+let ts_check_module (ts: type_State) (t: ast_mod): unit =
+  List.iter (check_toplevel ts) t
+;;

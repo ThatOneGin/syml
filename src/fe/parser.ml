@@ -83,11 +83,6 @@ let ps_unexpected (ps: parser_State) (expected: string): 'a =
 let ps_enter (ps: parser_State) = ps.depth <- ps.depth + 1;;
 let ps_leave (ps: parser_State) = ps.depth <- ps.depth - 1;;
 
-let peek (ps: parser_State): token =
-  let t: token = ps.peek in
-  ps_next ps; t
-;;
-
 (*
  * This function should only be used
  * when expecting tokens whose constructors
@@ -102,6 +97,8 @@ let ps_expect_sym
   end else
     ps_unexpected ps message
 ;;
+
+let ps_iseof (ps: parser_State): bool = ps.peek = TK_EOF;;
 
 (* Expression parsing *)
 
@@ -570,4 +567,14 @@ let parse_toplevel (ps: parser_State): Ast.toplevel =
   | TK_extern -> parse_extern ps
   | TK_typedef -> parse_typedef ps
   | _ -> ps_unexpected ps "variable or function statement"
+;;
+
+let parse (name: string) (src: string): Ast.ast_mod =
+  let ls = lex_new name src in
+  let ps = ps_new ls in
+  let ast_mod = ref [] in
+  while not (ps_iseof ps) do
+    ast_mod := !ast_mod @ [parse_toplevel ps]
+  done;
+  !ast_mod
 ;;

@@ -94,7 +94,7 @@ and instantiate_type (rs: resolve_State) (n: datatype) (t: datatype): datatype =
   nt
 ;;
 
-let rs_main (rs: resolve_State) (t: toplevel): unit =
+let rs_toplevel (rs: resolve_State) (t: toplevel): unit =
   let visit_stat a s =
     let ve = a.visit_expr a in
     match s with
@@ -121,4 +121,8 @@ let rs_main (rs: resolve_State) (t: toplevel): unit =
             visit_stat = visit_stat;
             visit_toplevel = visit_toplevel;} in
   av.visit_toplevel av t
+;;
+
+let rs_resolve_module (rs: resolve_State) (m: ast_mod): unit =
+  List.iter (rs_toplevel rs) m
 ;;
