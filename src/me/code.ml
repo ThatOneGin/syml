@@ -572,14 +572,14 @@ let cs_toplevel (cs: code_State) (t: toplevel): unit =
   | _ -> () (* compile-time constructs *)
 ;;
 
-let cs_emit_module (cs: code_State) (n: string) (m: ast_mod): unit =
-  smod_open_out cs.smod (n ^ ".s");
+let cs_emit_module (cs: code_State) (md: ast_mod): unit =
+  smod_open_out cs.smod (md.mod_name ^ ".s");
   (* reminder: change this when we support more architectures *)
   List.iter (fun t ->
     cs_toplevel cs t;
     (if Array.length cs.code > 0 then
       X86.emit_insts cs.smod (cs_finish cs))
-  ) m;
+  ) md.mod_body;
   X86.emit_constants cs.smod;
   X86.emit_globals cs.smod;
   smod_close_out cs.smod

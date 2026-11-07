@@ -572,9 +572,9 @@ let parse_toplevel (ps: parser_State): Ast.toplevel =
 let parse (name: string) (src: string): Ast.ast_mod =
   let ls = lex_new name src in
   let ps = ps_new ls in
-  let ast_mod = ref [] in
+  let md = Ast.new_mod name in
   while not (ps_iseof ps) do
-    ast_mod := !ast_mod @ [parse_toplevel ps]
+    Ast.mod_append md @@ parse_toplevel ps
   done;
-  !ast_mod
+  md
 ;;

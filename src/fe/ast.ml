@@ -70,8 +70,6 @@ and extern = {
     mutable ty: Dtypes.datatype;
   }
 
-type ast_mod = toplevel list
-
 let block_append (b: block) (s: stat): unit =
   b.body <- Array.append b.body [|s|]; ()
 ;;
@@ -122,4 +120,19 @@ let (ast_default_visitor: ast_visitor) =
     visit_blk = visit_blk;
     visit_toplevel = visit_toplevel;
   }
+;;
+
+type ast_mod = {
+    mod_name: string;
+    mutable mod_body: toplevel list;
+  }
+
+let new_mod name: ast_mod = {
+    mod_name = name;
+    mod_body = [];
+  }
+;;
+
+let mod_append (md: ast_mod) (t: toplevel): unit =
+  md.mod_body <- md.mod_body @ [t]
 ;;

@@ -208,6 +208,6 @@ let check_toplevel (ts: type_State) (f: toplevel): unit =
   | _ -> ()
 ;;
 
-let ts_check_module (ts: type_State) (t: ast_mod): unit =
-  List.iter (check_toplevel ts) t
+let ts_check_module (ts: type_State) (md: ast_mod): unit =
+  List.iter (check_toplevel ts) md.mod_body
 ;;

@@ -123,6 +123,6 @@ let rs_toplevel (rs: resolve_State) (t: toplevel): unit =
   av.visit_toplevel av t
 ;;
 
-let rs_resolve_module (rs: resolve_State) (m: ast_mod): unit =
-  List.iter (rs_toplevel rs) m
+let rs_resolve_module (rs: resolve_State) (md: ast_mod): unit =
+  List.iter (rs_toplevel rs) md.mod_body
 ;;

@@ -22,7 +22,7 @@ let dostring (opts: Comp_state.t) (name: string) (s: string): unit =
 
   rs_resolve_module rs _mod;
   ts_check_module ts _mod;
-  cs_emit_module cs name _mod
+  cs_emit_module cs _mod
 ;;
 
 let dofile (opts: Comp_state.t) (filename: string): unit =
