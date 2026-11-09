@@ -202,6 +202,9 @@ let rec rs_toplevel (rs: resolve_State) (t: toplevel): unit =
 and rs_toplevel_template_aux (rs: resolve_State) (t: template): unit =
   match t.decl with
   | Typedef (name, ty) -> rs_typename_set rs name (Generic (Name t.param, ty))
+  | Extern e when e.altname != None ->
+    Common.syml_warnf "custom name of extern declaration may not work inside a template";
+    rs_template_set rs (name_of_toplevel t.decl) t
   | _ -> rs_template_set rs (name_of_toplevel t.decl) t
 and rs_instanciate_template
   (rs: resolve_State)

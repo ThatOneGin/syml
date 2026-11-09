@@ -31,6 +31,9 @@ and location2str (loc: location): string =
 let syml_errorf fmt: 'a =
   ksprintf (fun s -> raise (Common_error s)) fmt;;
 
+let syml_warnf fmt: 'a =
+  ksprintf (fun s -> Printf.printf "warn: %s\n" s) fmt;;
+
 let unreachable (where: string) (what: string) =
   raise (Unreachable_error (what, where));;
 
