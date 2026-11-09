@@ -41,6 +41,7 @@ let ps_tk2str (ps: parser_State): string =
   | TK_extern -> "<extern>"
   | TK_as -> "<as>"
   | TK_typedef -> "<typedef>"
+  | TK_template -> "<template>"
   | TK_nil -> "<nil>"
   | TK_int -> "<int>"
   | TK_str -> "<str>"
@@ -139,6 +140,45 @@ let getoperator (ps: parser_State): Ast.operator =
   | _ -> ps_unexpected ps "binary operator"
 ;;
 
+(* type = nil | str | i8 | i16 | i32 | i64 *)
+let rec parse_type (ps: parser_State): Dtypes.datatype =
+  match ps.peek with
+  | TK_nil -> ps_next ps; Dtypes.Nil
+  | TK_int -> ps_next ps; Dtypes.Int
+  | TK_str -> ps_next ps; Dtypes.Str
+  | TK_i8 ->  ps_next ps; Dtypes.I8
+  | TK_i16 -> ps_next ps; Dtypes.I16
+  | TK_i32 -> ps_next ps; Dtypes.I32
+  | TK_i64 -> ps_next ps; Dtypes.I64
+  | TK_star -> ps_next ps; Dtypes.Ptr (parse_type ps)
+  | TK_lbrace -> parse_struct_lit ps
+  | TK_identifier s -> ps_next ps; parse_type_param_opt ps (Dtypes.Name s)
+  | _ -> ps_unexpected ps "valid type specifier."
+and parse_type_param_opt (ps: parser_State) (t: Dtypes.datatype): Dtypes.datatype =
+  match ps.peek with
+  | TK_lbracket ->
+    ps_next ps;
+    let n = parse_type ps in
+    ps_expect_sym ps TK_rbracket "']'";
+    Dtypes.Generic (n, t)
+  | _ -> t
+and parse_struct_lit (ps: parser_State): Dtypes.datatype =
+  let li = ref [] in
+  let rec aux () =
+    let name = parse_name_as_string ps in
+    ps_expect_sym ps TK_colon "':'";
+    let ty = parse_type ps in
+    li := !li @ [(name, ty)];
+    match ps.peek with
+    | TK_comma -> ps_next ps; aux ()
+    | _ -> ()
+  in
+  ps_expect_sym ps TK_lbrace "'{'";
+  aux ();
+  ps_expect_sym ps TK_rbrace "'}' to close struct literal";
+  Dtypes.Struct !li
+;;
+
 (* simpleexpr = INT | IDENTIFIER | STRING *)
 let parse_simpleexpr (ps: parser_State): Ast.expr =
   match ps.peek with
@@ -187,6 +227,15 @@ and parse_suffixedexpr (ps: parser_State): Ast.expr =
       in
       let tmp_e = Ast.Fieldaccess (!e, field) in
       e := tmp_e;
+      aux ()
+    | TK_lbracket ->
+      ps_next ps;
+      let t = parse_type ps in
+      ps_expect_sym ps TK_rbracket "']'";
+      e := Ast.Templatearg {
+        e = !e;
+        ty = t;
+      };
       aux ()
     | _ -> ()
   in
@@ -242,45 +291,6 @@ and parse_call (ps: parser_State) (caller: Ast.expr): Ast.expr =
 ;;
 
 (* Statement parsing *)
-
-(* type = nil | str | i8 | i16 | i32 | i64 *)
-let rec parse_type (ps: parser_State): Dtypes.datatype =
-  match ps.peek with
-  | TK_nil -> ps_next ps; Dtypes.Nil
-  | TK_int -> ps_next ps; Dtypes.Int
-  | TK_str -> ps_next ps; Dtypes.Str
-  | TK_i8 ->  ps_next ps; Dtypes.I8
-  | TK_i16 -> ps_next ps; Dtypes.I16
-  | TK_i32 -> ps_next ps; Dtypes.I32
-  | TK_i64 -> ps_next ps; Dtypes.I64
-  | TK_star -> ps_next ps; Dtypes.Ptr (parse_type ps)
-  | TK_lbrace -> parse_struct_lit ps
-  | TK_identifier s -> ps_next ps; parse_type_param_opt ps (Dtypes.Name s)
-  | _ -> ps_unexpected ps "valid type specifier."
-and parse_type_param_opt (ps: parser_State) (t: Dtypes.datatype): Dtypes.datatype =
-  match ps.peek with
-  | TK_lbracket ->
-    ps_next ps;
-    let n = parse_type ps in
-    ps_expect_sym ps TK_rbracket "']'";
-    Dtypes.Generic (n, t)
-  | _ -> t
-and parse_struct_lit (ps: parser_State): Dtypes.datatype =
-  let li = ref [] in
-  let rec aux () =
-    let name = parse_name_as_string ps in
-    ps_expect_sym ps TK_colon "':'";
-    let ty = parse_type ps in
-    li := !li @ [(name, ty)];
-    match ps.peek with
-    | TK_comma -> ps_next ps; aux ()
-    | _ -> ()
-  in
-  ps_expect_sym ps TK_lbrace "'{'";
-  aux ();
-  ps_expect_sym ps TK_rbrace "'}' to close struct literal";
-  Dtypes.Struct !li
-;;
 
 (* var = 'let' ident '=' expr *)
 let parse_var (ps: parser_State): Ast.stat =
@@ -545,28 +555,29 @@ let parse_extern (ps: parser_State): Ast.toplevel =
 let parse_typedef (ps: parser_State): Ast.toplevel =
   ps_expect_sym ps TK_typedef "'typedef'";
   let name = parse_name_as_string ps in
-  let parse_parameter_type () =
-    ps_next ps;
-    let n = Dtypes.Name (parse_name_as_string ps) in
-    ps_expect_sym ps TK_rbracket "']'";
-    let t = parse_type ps in
-    Dtypes.Generic (n, t)
-  in
-  let ty =
-    match ps.peek with
-    | TK_lbracket -> parse_parameter_type ()
-    | _ -> parse_type ps
-  in
+  let ty = parse_type ps in
   Ast.Typedef (name, ty)
 ;;
 
-let parse_toplevel (ps: parser_State): Ast.toplevel =
+let rec parse_toplevel (ps: parser_State): Ast.toplevel =
   match ps.peek with
   | TK_let -> parse_globvar ps
   | TK_def -> parse_func ps
   | TK_extern -> parse_extern ps
   | TK_typedef -> parse_typedef ps
+  | TK_template -> parse_template ps
   | _ -> ps_unexpected ps "variable or function statement"
+
+and parse_template (ps: parser_State): Ast.toplevel =
+  ps_next ps;
+  ps_expect_sym ps TK_lbracket "'['";
+  let name = parse_name_as_string ps in
+  ps_expect_sym ps TK_rbracket "']'";
+  let decl = parse_toplevel ps in
+  Ast.Template {
+    param = name;
+    decl = decl;
+  }
 ;;
 
 let parse (name: string) (src: string): Ast.ast_mod =

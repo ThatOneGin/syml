@@ -5,15 +5,23 @@
 
 open Ast
 open Dtypes
+open Resolve
 
 type type_State = {
     parent: type_State option; (* parent scope *)
+    rs: resolve_State;
     variables: (string, datatype) Hashtbl.t;
     mutable curr: datatype; (* current function return type *)
   }
 
-let ts_new (parent: type_State option): type_State = {
+let ts_new (parent: type_State option): type_State =
+  let rs = match parent with
+    | Some ts -> ts.rs
+    | None -> rs_new ()
+  in
+  {
     parent = parent;
+    rs = rs;
     variables = Hashtbl.create 32;
     curr = Nil;
   }
@@ -62,13 +70,6 @@ let equal (ty1: datatype) (ty2: datatype): bool =
     match (ty1, ty2) with
     | (Ptr t1, Ptr t2) -> t1 = t2
     | _ -> ty1 = ty2
-;;
-
-(* check if e compiles to a name *)
-let compile_to_name (e: Ast.expr): string option =
-  match e with
-  | Ident s -> Some s
-  | _ -> None
 ;;
 
 let find_field_by_name (s: (string * datatype) list) (field: field): datatype =

@@ -7,6 +7,8 @@ open Il
 open Ast
 open Ra
 open Common
+open Resolve
+open Typeutils
 
 (* state needed to convert AST to IL *)
 type code_State = {
@@ -18,6 +20,7 @@ type code_State = {
     mutable ty: Dtypes.datatype;
     vars: (string, typed_mem) Hashtbl.t;
     glob: (string, typed_mem) Hashtbl.t;
+    ts: type_State;
   }
 
 (* auxiliary functions *)
@@ -50,7 +53,7 @@ let type2bits (ty: Dtypes.datatype): bits =
 
 let mangle_name name = "syml." ^ name;;
 
-let cs_new (opts: Comp_state.t) (smod: smod): code_State = {
+let cs_new (opts: Comp_state.t) (ts: type_State) (smod: smod): code_State = {
     opts = opts;
     abi = Abi.create opts.target;
     ctxt = ctxt_new opts smod;
@@ -59,6 +62,7 @@ let cs_new (opts: Comp_state.t) (smod: smod): code_State = {
     ty = Dtypes.Nil;
     vars = Hashtbl.create 32;
     glob = Hashtbl.create 32;
+    ts = ts;
   }
 ;;
 
@@ -272,6 +276,7 @@ and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   | Binop _ -> code_binopexp cs e return_val
   | Call _ -> code_call cs e
   | Fieldaccess (e, f) -> code_field cs e f
+  | Templatearg tmpl -> code_template cs tmpl.e tmpl.ty
   | _ -> code_primexp cs e
 
 and code_call (cs: code_State) (e: expr): operand =
@@ -327,6 +332,20 @@ and code_field (cs: code_State)(e: Ast.expr) (f: Ast.field): operand =
     cs_getfield cs odest otmp oty f.idx;
     odest
   | _ -> unreachable "codegen" "code_field"
+and code_template (cs: code_State) (e: Ast.expr) (t: Dtypes.datatype): operand =
+  let name =
+    match compile_to_name e with
+    | Some s -> s
+    | None -> assert false
+  in
+  let ty = ref_of_type cs t in
+  let sym: name = {
+    (* double mangling *)
+    symbol = mangle_name @@ Mangling.mangle_name_with_type name [t];
+    extern = false;
+    ty = ty
+  } in
+  Mem (Name (sym), ty)
 ;;
 
 let code_const_exp (e: expr): const =
@@ -572,9 +591,18 @@ let cs_toplevel (cs: code_State) (t: toplevel): unit =
   | _ -> () (* compile-time constructs *)
 ;;
 
+let cs_emit_instances (cs: code_State): unit =
+  let instances = rs_get_instances cs.ts.rs in
+  Array.iter (fun (_, t) ->
+    cs_toplevel cs t;
+    (if Array.length cs.code > 0 then
+      X86.emit_insts cs.smod (cs_finish cs))) instances
+;;
+
 let cs_emit_module (cs: code_State) (md: ast_mod): unit =
   smod_open_out cs.smod (md.mod_name ^ ".s");
   (* reminder: change this when we support more architectures *)
+  cs_emit_instances cs;
   List.iter (fun t ->
     cs_toplevel cs t;
     (if Array.length cs.code > 0 then

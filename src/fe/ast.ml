@@ -17,6 +17,11 @@ type expr =
   | Ident of string
   | Call of (expr * expr array)
   | Fieldaccess of (expr * field)
+  | Templatearg of templatearg
+and templatearg = {
+    e: expr;
+    mutable ty: Dtypes.datatype;
+  }
 type stat =
   | Var of vard
   | Return of expr
@@ -30,6 +35,7 @@ and toplevel =
   | Globvar of vard
   | Extern of extern
   | Typedef of (string * Dtypes.datatype)
+  | Template of template
 and block = {
     mutable body: stat array;
   }
@@ -41,7 +47,7 @@ and funct = {
     name: string;
     blk: block;
     mutable ty: Dtypes.datatype;
-    params: param array;
+    mutable params: param array;
   }
 and vard = {
     name: string;
@@ -69,6 +75,10 @@ and extern = {
     altname: string option; (* name used in the backend *)
     mutable ty: Dtypes.datatype;
   }
+and template = {
+    param: string;
+    decl: toplevel;
+  }
 
 let block_append (b: block) (s: stat): unit =
   b.body <- Array.append b.body [|s|]; ()
@@ -88,6 +98,7 @@ let (ast_default_visitor: ast_visitor) =
     | Binop (l, _, r) -> ve l; ve r
     | Call (caller, args) -> ve caller; Array.iter ve args
     | Fieldaccess (lv, _) -> ve lv
+    | Templatearg tmpl -> ve tmpl.e
     | _ -> ()
   in
   let visit_stat a s =
@@ -135,4 +146,33 @@ let new_mod name: ast_mod = {
 
 let mod_append (md: ast_mod) (t: toplevel): unit =
   md.mod_body <- md.mod_body @ [t]
+;;
+
+(* returns the type signature of a toplevel structure (if any) *)
+let rec type_sig_of_toplevel = function
+  | Func f -> Dtypes.Fptr {
+    ret = f.ty;
+    args = List.init (Array.length f.params) (fun i -> f.params.(i).ty);
+  }
+  | Globvar g -> g.ty
+  | Extern e -> e.ty
+  | Typedef (_, t) -> t
+  | Template t -> type_sig_of_toplevel t.decl
+;;
+
+(* returns the name of the declaration of a toplevel structure (if any) *)
+let rec name_of_toplevel = function
+  | Func f -> f.name
+  | Globvar g -> g.name
+  | Extern e -> e.name
+  | Typedef (n, _) -> n
+  | Template t -> name_of_toplevel t.decl
+;;
+
+(* check if e compiles to a name *)
+let rec compile_to_name (e: expr): string option =
+  match e with
+  | Ident s -> Some s
+  | Templatearg tmpl -> compile_to_name tmpl.e
+  | _ -> None
 ;;

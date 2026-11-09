@@ -6,6 +6,7 @@
 open Typeutils
 open Ast
 open Dtypes
+open Resolve
 
 let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
   let (lhs, op, rhs) = match b with
@@ -50,7 +51,7 @@ and check_call
     | Some s -> s
     | None -> type_error "invalid function caller"
   in
-  let t = ts_query_symbol ts name in
+  let t = typeof_expr ts caller in
   match t with
   | Fptr ft ->
     List.iteri (fun i a ->
@@ -85,6 +86,14 @@ and typeof_expr (ts: type_State) (e: expr): datatype =
   | Binop _ -> check_binop ts e
   | Call (caller, args) -> check_call ts caller args
   | Fieldaccess (lhs, field) -> check_field_access ts lhs field
+  | Templatearg t ->
+    let name =
+      match compile_to_name t.e with
+      | Some s -> s
+      | None -> type_error "invalid instance"
+    in
+    let inst = rs_get_instance ts.rs name t.ty in
+    type_sig_of_toplevel inst
 ;;
 
 let check_initializer (t1: datatype) (ini: datatype): bool =
@@ -195,8 +204,8 @@ let types_from_paramlist (ps: param array): datatype list =
 let check_toplevel (ts: type_State) (f: toplevel): unit =
   match f with
   | Func ft ->
-     let func_scope = ts_enter ts in
-     let func_type: fptr = {
+    let func_scope = ts_enter ts in
+    let func_type: fptr = {
                          ret = ft.ty;
                          args = types_from_paramlist ft.params;
                        } in
@@ -209,5 +218,10 @@ let check_toplevel (ts: type_State) (f: toplevel): unit =
 ;;
 
 let ts_check_module (ts: type_State) (md: ast_mod): unit =
+  rs_resolve_module ts.rs md;
+  let instances = rs_get_instances ts.rs in
+  Array.iter (fun (_, t) ->
+    let _ts = ts_enter ts in
+    check_toplevel _ts t) instances;
   List.iter (check_toplevel ts) md.mod_body
 ;;
