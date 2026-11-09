@@ -152,6 +152,7 @@ let rec rs_toplevel (rs: resolve_State) (t: toplevel): unit =
     match e with
     | Binop (l, _, r) -> ve l; ve r
     | Call (caller, args) -> ve caller; Array.iter ve args
+    | Cast c -> ve c.e; c.ty <- visit_type rs c.ty
     | Fieldaccess (lv, _) -> ve lv
     | Templatearg tmpl ->
       ve tmpl.e;

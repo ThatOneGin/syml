@@ -16,12 +16,18 @@ type expr =
   | Binop of (expr * operator * expr)
   | Ident of string
   | Call of (expr * expr array)
+  | Cast of castexpr
   | Fieldaccess of (expr * field)
   | Templatearg of templatearg
 and templatearg = {
     e: expr;
     mutable ty: Dtypes.datatype;
   }
+and castexpr = {
+    e: expr;
+    mutable ty: Dtypes.datatype;
+  }
+
 type stat =
   | Var of vard
   | Return of expr

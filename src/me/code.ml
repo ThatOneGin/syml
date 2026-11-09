@@ -275,6 +275,7 @@ and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop _ -> code_binopexp cs e return_val
   | Call _ -> code_call cs e
+  | Cast c -> code_cast cs c
   | Fieldaccess (e, f) -> code_field cs e f
   | Templatearg tmpl -> code_template cs tmpl.e tmpl.ty
   | _ -> code_primexp cs e
@@ -346,6 +347,12 @@ and code_template (cs: code_State) (e: Ast.expr) (t: Dtypes.datatype): operand =
     ty = ty
   } in
   Mem (Name (sym), ty)
+and code_cast (cs: code_State) (c: Ast.castexpr): operand =
+  let op: operand = code_exp cs c.e true in
+  let ty = ref_of_type cs c.ty in
+  match op with
+  | Mem (m, _) -> Mem (m, ty)
+  | Imm (i, _) -> Imm (i, ty)
 ;;
 
 let code_const_exp (e: expr): const =
@@ -532,7 +539,7 @@ let code_extern (cs: code_State) (e: extern): unit =
     extern = true;
     ty = ty;
   } in
-  cs_reg_var cs e.name (Il.Name name, ty)
+  cs_reg_glob cs e.name (Il.Name name, ty)
 ;;
 
 (* set all returns of the function to the last label
@@ -602,12 +609,13 @@ let cs_emit_instances (cs: code_State): unit =
 let cs_emit_module (cs: code_State) (md: ast_mod): unit =
   smod_open_out cs.smod (md.mod_name ^ ".s");
   (* reminder: change this when we support more architectures *)
-  cs_emit_instances cs;
   List.iter (fun t ->
     cs_toplevel cs t;
     (if Array.length cs.code > 0 then
       X86.emit_insts cs.smod (cs_finish cs))
   ) md.mod_body;
+  Hashtbl.iter (fun name _ -> print_endline name) cs.glob;
+  cs_emit_instances cs;
   X86.emit_constants cs.smod;
   X86.emit_globals cs.smod;
   smod_close_out cs.smod

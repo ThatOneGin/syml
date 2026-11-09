@@ -78,6 +78,17 @@ and check_field_access (ts: type_State) (lhs: expr) (field: field): datatype =
         "Field access can only be done with structs and not with %s"
         (type2str lty))
     (* this error is so bad *)
+and check_cast (ts: type_State) (c: castexpr): unit =
+  let rt = c.ty in
+  let lt = typeof_expr ts c.e in
+  if (is_numeric_type lt && is_numeric_type rt) || (equal lt rt) then ()
+  else match (lt, rt) with
+    | (_, Ptr _) when is_numeric_type lt -> ()
+    | (Ptr I8, Str) | (_, Ptr _) -> ()
+    | _ ->
+      type_error
+        (Printf.sprintf "cast from %s to %s is not allowed"
+        (type2str lt) (type2str rt))
 and typeof_expr (ts: type_State) (e: expr): datatype =
   match e with
   | Number _ -> Int
@@ -85,6 +96,7 @@ and typeof_expr (ts: type_State) (e: expr): datatype =
   | Ident s -> ts_query_symbol ts s
   | Binop _ -> check_binop ts e
   | Call (caller, args) -> check_call ts caller args
+  | Cast c -> check_cast ts c; c.ty
   | Fieldaccess (lhs, field) -> check_field_access ts lhs field
   | Templatearg t ->
     let name =
@@ -220,8 +232,8 @@ let check_toplevel (ts: type_State) (f: toplevel): unit =
 let ts_check_module (ts: type_State) (md: ast_mod): unit =
   rs_resolve_module ts.rs md;
   let instances = rs_get_instances ts.rs in
+  List.iter (check_toplevel ts) md.mod_body;
   Array.iter (fun (_, t) ->
     let _ts = ts_enter ts in
     check_toplevel _ts t) instances;
-  List.iter (check_toplevel ts) md.mod_body
 ;;

@@ -237,6 +237,14 @@ and parse_suffixedexpr (ps: parser_State): Ast.expr =
         ty = t;
       };
       aux ()
+    | TK_as ->
+      ps_next ps;
+      let t = parse_type ps in
+      e := Ast.Cast {
+        e = !e;
+        ty = t;
+      };
+      aux ()
     | _ -> ()
   in
   aux ();
