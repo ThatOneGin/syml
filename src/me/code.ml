@@ -614,7 +614,6 @@ let cs_emit_module (cs: code_State) (md: ast_mod): unit =
     (if Array.length cs.code > 0 then
       X86.emit_insts cs.smod (cs_finish cs))
   ) md.mod_body;
-  Hashtbl.iter (fun name _ -> print_endline name) cs.glob;
   cs_emit_instances cs;
   X86.emit_constants cs.smod;
   X86.emit_globals cs.smod;

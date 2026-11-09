@@ -55,6 +55,8 @@ let ps_tk2str (ps: parser_State): string =
   | TK_slash -> "</>"
   | TK_equ -> "<==>"
   | TK_neq -> "<!=>"
+  | TK_gt -> "'>'"
+  | TK_lt -> "'<'"
   | TK_lparen -> "<(>"
   | TK_rparen -> "<)>"
   | TK_lbrace -> "<{>"
@@ -156,10 +158,10 @@ let rec parse_type (ps: parser_State): Dtypes.datatype =
   | _ -> ps_unexpected ps "valid type specifier."
 and parse_type_param_opt (ps: parser_State) (t: Dtypes.datatype): Dtypes.datatype =
   match ps.peek with
-  | TK_lbracket ->
+  | TK_lt ->
     ps_next ps;
     let n = parse_type ps in
-    ps_expect_sym ps TK_rbracket "']'";
+    ps_expect_sym ps TK_gt "'>'";
     Dtypes.Generic (n, t)
   | _ -> t
 and parse_struct_lit (ps: parser_State): Dtypes.datatype =
@@ -228,10 +230,10 @@ and parse_suffixedexpr (ps: parser_State): Ast.expr =
       let tmp_e = Ast.Fieldaccess (!e, field) in
       e := tmp_e;
       aux ()
-    | TK_lbracket ->
+    | TK_lt ->
       ps_next ps;
       let t = parse_type ps in
-      ps_expect_sym ps TK_rbracket "']'";
+      ps_expect_sym ps TK_gt "'>'";
       e := Ast.Templatearg {
         e = !e;
         ty = t;
@@ -578,9 +580,9 @@ let rec parse_toplevel (ps: parser_State): Ast.toplevel =
 
 and parse_template (ps: parser_State): Ast.toplevel =
   ps_next ps;
-  ps_expect_sym ps TK_lbracket "'['";
+  ps_expect_sym ps TK_lt "'<'";
   let name = parse_name_as_string ps in
-  ps_expect_sym ps TK_rbracket "']'";
+  ps_expect_sym ps TK_gt "'>'";
   let decl = parse_toplevel ps in
   Ast.Template {
     param = name;

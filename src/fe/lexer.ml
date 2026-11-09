@@ -38,6 +38,7 @@ type token =
   | TK_slash
   | TK_equ
   | TK_neq
+  | TK_gt | TK_lt
   | TK_lparen | TK_rparen
   | TK_lbrace | TK_rbrace
   | TK_lbracket | TK_rbracket
@@ -189,6 +190,8 @@ let read_double_op (ls: lex_State): token =
 
 let lex_read_char (ls: lex_State): token =
   match ls.current with
+  | '>' -> lex_advance ls; TK_gt
+  | '<' -> lex_advance ls; TK_lt
   | '(' -> lex_advance ls; TK_lparen
   | ')' -> lex_advance ls; TK_rparen
   | '{' -> lex_advance ls; TK_lbrace
