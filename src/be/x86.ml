@@ -225,7 +225,7 @@ let emit_call (s: Il.smod) (c: Il.call): unit =
   emit_args s c.args;
   let inner_emit_mem (m: Il.mem): string =
     match m with
-    | Name n -> n.symbol
+    | Name n -> if n.extern then n.symbol ^ "@PLT" else n.symbol
     | _ -> "*" ^ emit_mem m Bits64 (* indirect call *)
   in
   let f =
@@ -250,8 +250,12 @@ let emit_lea (s: Il.smod) (l: Il.lea): unit =
 ;;
 
 let fepilogue (s: Il.smod) (n: int64): unit =
+  Il.smod_emit s "\t.cfi_startproc\n";
   Il.smod_emit s "\tpushq\t%rbp\n";
-  Il.smod_emit s "\tmovq\t%rsp,\t%rbp";
+  Il.smod_emit s "\t.cfi_def_cfa_offset 16\n";
+	Il.smod_emit s "\t.cfi_offset %rbp, -16\n";
+  Il.smod_emit s "\tmovq\t%rsp,\t%rbp\n";
+  Il.smod_emit s "\t.cfi_def_cfa_register %rbp";
   if n > 0L
   then begin
     emit_newline s;
@@ -262,7 +266,9 @@ let fepilogue (s: Il.smod) (n: int64): unit =
 
 let fprologue (s: Il.smod): unit =
   Il.smod_emit s "\tleave\n";
-  Il.smod_emit s "\tret"
+  Il.smod_emit s "\t.cfi_def_cfa %rbp, 8\n";
+  Il.smod_emit s "\tret\n";
+  Il.smod_emit s "\t.cfi_endproc"
 ;;
 
 (* TODO: not use Str package to do this *)
