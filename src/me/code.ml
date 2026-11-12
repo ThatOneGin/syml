@@ -599,6 +599,7 @@ let cs_emit_instances (cs: code_State): unit =
 
 let cs_emit_module (cs: code_State) (md: ast_mod): unit =
   smod_open_out cs.smod (md.mod_name ^ ".s");
+  cs_code cs (Prop (Directive (File (md.mod_name ^ ".syml"))));
   (* reminder: change this when we support more architectures *)
   List.iter (fun t ->
     cs_toplevel cs t;
