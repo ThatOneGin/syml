@@ -286,7 +286,7 @@ and code_call (cs: code_State) (e: expr): operand =
     let il_call_caller = code_exp cs caller true in
     let il_call_args = code_args cs args in
     cs_call cs il_call_caller il_call_args;
-    Mem (Reg (Mreg 0), ref_of_type cs cs.ty)
+    Mem (Reg (Mreg cs.abi.fret_reg), ref_of_type cs cs.ty)
   | _ -> unreachable "Codegen" "expected call expression";
   (*
    * For structs, we implicitly pass them by reference
@@ -361,15 +361,6 @@ let code_const_exp (e: expr): const =
   | Number i -> K_integer (Int64.of_int i, Bits32)
   | _ -> unreachable "" ""
 ;;
-
-(*
-let code_glob_exp (cs: code_State) (name: string) (e: expr): operand =
-  match e with
-  | String s -> code_glob cs name (K_string s) str_t
-  | Number i -> code_glob cs name (K_integer (Int64.of_int i, Bits32)) i32_t
-  | _ -> unreachable "" ""
-;;
-*)
 
 let code_ret (cs: code_State) (r: expr): unit =
   let op = (code_exp cs r true) in

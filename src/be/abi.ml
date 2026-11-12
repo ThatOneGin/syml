@@ -9,6 +9,7 @@ type t = {
     nth_reg_arg: t -> int -> mem option;
     fnarg_regs: int;
     farg_regs: mem list;
+    fret_reg: int;
     sizeof: ref_ty -> int;
     alignof: ref_ty -> int;
     create_struct: ref_ty list -> struct_layout;
@@ -106,6 +107,7 @@ module Abi_x86 = struct
     {
       farg_regs = farg_regs;
       fnarg_regs = List.length farg_regs;
+      fret_reg = rax;
       nth_reg_arg = nth_reg_arg;
       sizeof = sizeof;
       alignof = alignof;
