@@ -42,24 +42,21 @@ let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
     if is_numeric_type lt && is_numeric_type rt then I32
     else invalid ()
   | _ -> I32
-and check_call
-  (ts: type_State)
-  (caller: Ast.expr)
-  (args: Ast.expr array): datatype =
+and check_call (ts: type_State) (c: callexpr): datatype =
   let name =
-    match compile_to_name caller with
+    match compile_to_name c.caller with
     | Some s -> s
     | None -> type_error "invalid function caller"
   in
-  let t = typeof_expr ts caller in
+  let t = typeof_expr ts c.caller in
   match t with
   | Fptr ft ->
     List.iteri (fun i a ->
-      let arg_ty = typeof_expr ts args.(i) in
+      let arg_ty = typeof_expr ts c.args.(i) in
       if equal arg_ty a then ()
       else
         type_error
-          (Printf.sprintf "argument %d type mismatch (wanted %s, got %s)"
+          (Printf.sprintf "argument #%d type mismatch (wanted %s, got %s)"
             i (type2str a) (type2str arg_ty))
     ) ft.args;
     ft.ret
@@ -95,7 +92,7 @@ and typeof_expr (ts: type_State) (e: expr): datatype =
   | String _ -> Str
   | Ident s -> ts_query_symbol ts s
   | Binop _ -> check_binop ts e
-  | Call (caller, args) -> check_call ts caller args
+  | Call c -> check_call ts c
   | Cast c -> check_cast ts c; c.ty
   | Fieldaccess (lhs, field) -> check_field_access ts lhs field
   | Templatearg t ->

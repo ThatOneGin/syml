@@ -297,7 +297,10 @@ and parse_arglist (ps: parser_State): Ast.expr array =
 (* callexpr = primaryexpr '(' arglist ')' *)
 and parse_call (ps: parser_State) (caller: Ast.expr): Ast.expr =
   let (arglist: Ast.expr array) = parse_arglist ps in
-  Ast.Call (caller, arglist)
+  Ast.Call {
+    caller = caller;
+    args = arglist;
+  }
 ;;
 
 (* Statement parsing *)

@@ -274,20 +274,18 @@ let rec code_binopexp (cs: code_State) (e: expr) (return_val: bool): operand =
 and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   match e with
   | Binop _ -> code_binopexp cs e return_val
-  | Call _ -> code_call cs e
+  | Call c -> code_call cs c
   | Cast c -> code_cast cs c
   | Fieldaccess (e, f) -> code_field cs e f
   | Templatearg tmpl -> code_template cs tmpl.e tmpl.ty
   | _ -> code_primexp cs e
 
-and code_call (cs: code_State) (e: expr): operand =
-  match e with
-  | Call (caller, args) ->
-    let il_call_caller = code_exp cs caller true in
-    let il_call_args = code_args cs args in
-    cs_call cs il_call_caller il_call_args;
-    Mem (Reg (Mreg cs.abi.fret_reg), ref_of_type cs cs.ty)
-  | _ -> unreachable "Codegen" "expected call expression";
+and code_call (cs: code_State) (c: callexpr): operand =
+  let il_call_caller = code_exp cs c.caller true in
+  let il_call_args = code_args cs c.args in
+  cs_call cs il_call_caller il_call_args;
+  Mem (Reg (Mreg cs.abi.fret_reg), ref_of_type cs cs.ty)
+
   (*
    * For structs, we implicitly pass them by reference
    *)

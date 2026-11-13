@@ -15,7 +15,7 @@ type expr =
   | String of string
   | Binop of (expr * operator * expr)
   | Ident of string
-  | Call of (expr * expr array)
+  | Call of callexpr
   | Cast of castexpr
   | Fieldaccess of (expr * field)
   | Templatearg of templatearg
@@ -26,6 +26,10 @@ and templatearg = {
 and castexpr = {
     e: expr;
     mutable ty: Dtypes.datatype;
+  }
+and callexpr = {
+    mutable caller: expr;
+    args: expr array;
   }
 
 type stat =
@@ -102,7 +106,7 @@ let (ast_default_visitor: ast_visitor) =
     let ve = a.visit_expr a in
     match e with
     | Binop (l, _, r) -> ve l; ve r
-    | Call (caller, args) -> ve caller; Array.iter ve args
+    | Call c -> ve c.caller; Array.iter ve c.args
     | Fieldaccess (lv, _) -> ve lv
     | Templatearg tmpl -> ve tmpl.e
     | _ -> ()

@@ -151,7 +151,7 @@ let rec rs_toplevel (rs: resolve_State) (t: toplevel): unit =
     let ve = a.visit_expr a in
     match e with
     | Binop (l, _, r) -> ve l; ve r
-    | Call (caller, args) -> ve caller; Array.iter ve args
+    | Call c -> ve c.caller; Array.iter ve c.args
     | Cast c -> ve c.e; c.ty <- visit_type rs c.ty
     | Fieldaccess (lv, _) -> ve lv
     | Templatearg tmpl ->
