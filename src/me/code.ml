@@ -51,8 +51,6 @@ let type2bits (ty: Dtypes.datatype): bits =
   | Generic _ | Name _ -> assert false (* unreachable *)
 ;;
 
-let mangle_name name = "syml." ^ name;;
-
 let cs_new (opts: Comp_state.t) (ts: type_State) (smod: smod): code_State = {
     opts = opts;
     abi = Abi.create opts.target;
@@ -339,8 +337,7 @@ and code_template (cs: code_State) (e: Ast.expr) (t: Dtypes.datatype): operand =
   in
   let ty = ref_of_type cs t in
   let sym: name = {
-    (* double mangling *)
-    symbol = mangle_name @@ Mangling.mangle_name_with_type name [t];
+    symbol = Mangling.mangle_template name [t];
     extern = false;
     ty = ty
   } in
@@ -486,13 +483,20 @@ let func_end (cs: code_State) (name: string): unit =
 ;;
 
 let code_func (cs: code_State) (f: funct): unit =
-  let symbol_name = mangle_name f.name in
+  let symbol_name =
+    if (String.sub f.name 0 2) = "_S"
+    then f.name
+    else begin
+      let tylist = List.init (Array.length f.params) (fun i -> f.params.(i).ty) in
+      Mangling.mangle_func f.name tylist
+    end
+  in
   let name: Il.name = {
     symbol = symbol_name;
     extern = false;
     ty = fptr_t;
   } in
-  cs_reg_glob cs f.name (Name name, fptr_t);
+  cs_reg_glob cs symbol_name (Name name, fptr_t);
   func_start cs symbol_name;
   code_namedlabel cs symbol_name;
   code_unnamedlabel cs;
@@ -505,7 +509,7 @@ let code_func (cs: code_State) (f: funct): unit =
 ;;
 
 let code_globvar (cs: code_State) (v: vard): unit =
-  let symbol_name = mangle_name v.name in
+  let symbol_name = Mangling.mangle_var v.name v.ty in
   let ty = ref_of_type cs v.ty in
   let _ = code_glob cs symbol_name (code_const_exp v.value) ty in
   let name: Il.name = {
@@ -518,10 +522,14 @@ let code_globvar (cs: code_State) (v: vard): unit =
 
 let code_extern (cs: code_State) (e: extern): unit =
   let ty = ref_of_type cs e.ty in
+  let mangle_extern_aux = function
+    | Dtypes.Fptr ft -> Mangling.mangle_func e.name ft.args
+    | _ -> Mangling.mangle_var e.name e.ty
+  in
   let symbol =
     match e.altname with
     | Some s -> s
-    | None -> mangle_name e.name
+    | None -> mangle_extern_aux e.ty
   in
   let name = {
     symbol = symbol;

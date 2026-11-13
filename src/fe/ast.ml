@@ -65,7 +65,7 @@ and vard = {
     value: expr;
   }
 and vcall = {
-    func: expr;
+    mutable func: expr;
     args: expr array;
   }
 and ifstat = {
@@ -180,9 +180,8 @@ let rec name_of_toplevel = function
 ;;
 
 (* check if e compiles to a name *)
-let rec compile_to_name (e: expr): string option =
+let compile_to_name (e: expr): string option =
   match e with
   | Ident s -> Some s
-  | Templatearg tmpl -> compile_to_name tmpl.e
   | _ -> None
 ;;

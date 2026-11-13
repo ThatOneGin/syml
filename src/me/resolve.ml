@@ -7,6 +7,7 @@ open Ast
 open Dtypes
 
 type resolve_State = {
+    functions: (string, (string * datatype)) Hashtbl.t;
     templates: (string, template) Hashtbl.t;
     generics: (string, datatype) Hashtbl.t;
     typenames: (string, datatype) Hashtbl.t;
@@ -14,11 +15,50 @@ type resolve_State = {
   }
 
 let rs_new (): resolve_State = {
+    functions = Hashtbl.create 0;
     templates = Hashtbl.create 0;
     generics = Hashtbl.create 0;
     typenames = Hashtbl.create 0;
     instances = [||];
   }
+;;
+
+let rs_function_push (rs: resolve_State) (s: string) (fsig: datatype) (a: datatype list): unit =
+  let funcs = Hashtbl.find_all rs.functions s in
+  let mname = Mangling.mangle_func s a in
+  if List.exists (fun (v, _) -> v = mname) funcs then ()
+  else begin
+    Hashtbl.add rs.functions s (mname, fsig)
+  end
+;;
+
+let rs_function_get_opt
+  (rs: resolve_State)
+  (s: string)
+  (a: datatype list): (string * datatype) option =
+  
+  let mname = Mangling.mangle_func s a in
+  let funcs = Hashtbl.find_all rs.functions s in
+  let rec aux l: (string * datatype) option =
+    match l with
+    | [] -> None
+    | (f_mname, f_type) :: h ->
+      if f_mname = mname
+      then Some (f_mname, f_type)
+      else aux h
+  in
+  aux funcs
+;;
+
+let rs_function_get (rs: resolve_State) (s: string) (a: datatype list): (string * datatype) =
+  match rs_function_get_opt rs s a with
+  | Some (f_mname, f_type) -> (f_mname, f_type)
+  | None ->
+    type_error
+      (Printf.sprintf
+        "no function instance for %s(%s)"
+        s
+        (String.concat "," (List.map type2str a)))
 ;;
 
 let rs_instance_push (rs: resolve_State) (s: string) (t: toplevel): unit =
@@ -165,7 +205,7 @@ let rec rs_toplevel (rs: resolve_State) (t: toplevel): unit =
       in
       let ty = visit_type rs tmpl.ty in
       let templ = rs_template_get rs name in
-      let mname = Mangling.mangle_name_with_type name [ty] in
+      let mname = Mangling.mangle_template name [ty] in
       let inst = rs_instanciate_template rs mname templ ty in
       tmpl.ty <- ty;
       rs_instance_push rs mname inst;
@@ -187,7 +227,9 @@ let rec rs_toplevel (rs: resolve_State) (t: toplevel): unit =
     | Func f ->
       vb f.blk;
       f.ty <- visit_type rs f.ty;
-      f.params <- Array.map (fun (p: param) -> {p with ty = visit_type rs p.ty}) f.params
+      f.params <- Array.map (fun (p: param) -> {p with ty = visit_type rs p.ty}) f.params;
+      let tylist = List.init (Array.length f.params) (fun i -> f.params.(i).ty) in
+      rs_function_push rs f.name f.ty tylist
     | Globvar v ->
       ve v.value;
       v.ty <- visit_type rs v.ty
@@ -234,7 +276,7 @@ let rs_resolve_module (rs: resolve_State) (md: ast_mod): unit =
 ;;
 
 let rs_get_instance (rs: resolve_State) (name: string) (t: datatype): toplevel =
-  let mname = Mangling.mangle_name_with_type name [t] in
+  let mname = Mangling.mangle_template name [t] in
   let rec aux (i: int): toplevel =
     if i >= Array.length rs.instances
     then

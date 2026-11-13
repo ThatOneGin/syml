@@ -43,28 +43,38 @@ let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
     else invalid ()
   | _ -> I32
 and check_call (ts: type_State) (c: callexpr): datatype =
-  let name =
-    match compile_to_name c.caller with
-    | Some s -> s
-    | None -> type_error "invalid function caller"
+  let _name = compile_to_name c.caller in
+  let check_call_aux ty: datatype =
+    match ty with
+    | Fptr ft ->
+      List.iteri (fun i a ->
+          let arg_ty = typeof_expr ts c.args.(i) in
+          if equal arg_ty a then ()
+          else
+            type_error
+              (Printf.sprintf "argument #%d type mismatch (wanted %s, got %s)"
+                i (type2str a) (type2str arg_ty))
+      ) ft.args;
+      ft.ret
+    | _ -> type_error (Printf.sprintf "trying to call a value of type %s" (type2str ty))
   in
-  let t = typeof_expr ts c.caller in
-  match t with
-  | Fptr ft ->
-    List.iteri (fun i a ->
-      let arg_ty = typeof_expr ts c.args.(i) in
-      if equal arg_ty a then ()
-      else
-        type_error
-          (Printf.sprintf "argument #%d type mismatch (wanted %s, got %s)"
-            i (type2str a) (type2str arg_ty))
-    ) ft.args;
-    ft.ret
-  | _ ->
-    type_error
-      (Printf.sprintf
-        "invalid caller value (type %s, name %s)"
-        (type2str t) name)
+  let check_caller (caller: (string * datatype) option): datatype =
+    match caller with
+    | Some (f_name, f_type) ->
+      c.caller <- Ident f_name;
+      f_type
+    | None ->
+      let ty = typeof_expr ts c.caller in
+      check_call_aux ty
+  in
+  match _name with
+  | None ->
+    let ty = typeof_expr ts c.caller in
+    check_call_aux ty
+  | Some name ->
+    let args = List.init (Array.length c.args) (fun i -> typeof_expr ts c.args.(i)) in
+    let f_opt = rs_function_get_opt ts.rs name args in
+    check_caller f_opt
 and check_field_access (ts: type_State) (lhs: expr) (field: field): datatype =
   let lty = typeof_expr ts lhs in
   match lty with
@@ -148,27 +158,44 @@ let check_return (ts: type_State) (r: expr): unit =
 ;;
 
 let check_vcall (ts: type_State) (c: vcall): unit =
-  let name =
-    match compile_to_name c.func with
-    | Some s -> s
-    | None -> type_error "invalid function caller"
+  let _name = compile_to_name c.func in
+  let check_call_aux ty: unit =
+    match ty with
+    | Fptr ft when ft.ret = Nil ->
+      List.iteri (fun i a ->
+          let arg_ty = typeof_expr ts c.args.(i) in
+          if equal arg_ty a then ()
+          else
+            type_error
+              (Printf.sprintf "argument #%d type mismatch (wanted %s, got %s)"
+                i (type2str a) (type2str arg_ty))
+      ) ft.args
+    | Fptr _ ->
+      type_error
+        (Printf.sprintf
+          "function must return nil when calling as statement (but it returns a value of type %s)"
+          (type2str ty))
+    | _ ->
+      type_error
+        (Printf.sprintf
+          "caller must be a function not a %s"
+          (type2str ty))
   in
-  let t = ts_query_symbol ts name in
-  match t with
-  | Fptr ft when ft.ret = Nil ->
-     List.iteri (fun i a ->
-         let arg_ty = typeof_expr ts c.args.(i) in
-         if equal arg_ty a then ()
-         else
-           type_error
-             (Printf.sprintf "argument %d type mismatch (wanted %s, got %s)"
-               i (type2str a) (type2str arg_ty))
-       ) ft.args
-  | _ ->
-    type_error
-    (Printf.sprintf
-      "A call statement must return nil, but instead returns %s (function '%s')."
-      (type2str t) name)
+  let check_caller (caller: (string * datatype) option): unit =
+    match caller with
+    | Some (f_name, _) -> c.func <- Ident f_name
+    | None ->
+      let ty = typeof_expr ts c.func in
+      check_call_aux ty
+  in
+  match _name with
+  | None ->
+    let ty = typeof_expr ts c.func in
+    check_call_aux ty
+  | Some name ->
+    let args = List.init (Array.length c.args) (fun i -> typeof_expr ts c.args.(i)) in
+    let f_opt = rs_function_get_opt ts.rs name args in
+    check_caller f_opt
 ;;
 
 let check_asm (ts: type_State) (a: asm): unit =
@@ -205,21 +232,9 @@ let check_func (ts: type_State) (f: funct): unit =
   Array.iter (fun (s: stat) -> check_stat ts s) f.blk.body
 ;;
 
-let types_from_paramlist (ps: param array): datatype list =
-  let nparams = Array.length ps in
-  List.init nparams (fun i -> ps.(i).ty)
-;;
-
 let check_toplevel (ts: type_State) (f: toplevel): unit =
   match f with
-  | Func ft ->
-    let func_scope = ts_enter ts in
-    let func_type: fptr = {
-                         ret = ft.ty;
-                         args = types_from_paramlist ft.params;
-                       } in
-    ts_reg_symbol ts ft.name (Fptr func_type);
-    check_func func_scope ft
+  | Func ft -> let fscope = ts_enter ts in check_func fscope ft
   | Globvar v -> check_const_vard ts v
   | Extern e ->
     ts_reg_symbol ts e.name e.ty

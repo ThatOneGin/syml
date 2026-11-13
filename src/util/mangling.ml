@@ -4,7 +4,7 @@
 open Dtypes
 
 let mangle_name s =
-  Printf.sprintf "%d%s" (String.length s) s
+  Printf.sprintf "_S%d%s" (String.length s) s
 ;;
 
 let rec name_of_type = function
@@ -27,6 +27,10 @@ let rec name_of_type = function
   | _ -> assert false
 ;;
 
-let mangle_name_with_type name ty =
-  mangle_name name ^ (String.concat "" @@ List.map name_of_type ty)
+let mangle_name_with_type name pref ty =
+  mangle_name name ^ pref ^ (String.concat "" @@ List.map name_of_type ty)
 ;;
+
+let mangle_func name ty = mangle_name_with_type name "F" ty;;
+let mangle_var name ty = mangle_name_with_type name "V" [ty];;
+let mangle_template name ty = mangle_name_with_type name "T" ty;;
