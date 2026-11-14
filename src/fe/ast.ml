@@ -18,6 +18,7 @@ type expr =
   | Call of callexpr
   | Cast of castexpr
   | Fieldaccess of (expr * field)
+  | Typeinfo of typeinfoexpr
   | Templatearg of templatearg
 and templatearg = {
     e: expr;
@@ -30,6 +31,9 @@ and castexpr = {
 and callexpr = {
     mutable caller: expr;
     args: expr array;
+  }
+and typeinfoexpr = {
+    mutable ty: Dtypes.datatype;
   }
 
 type stat =

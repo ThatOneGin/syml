@@ -8,6 +8,14 @@ open Ast
 open Dtypes
 open Resolve
 
+let typeinfo_t =
+  Ptr (Struct [
+    ("sizeof", I64);
+    ("alignof", I64);
+    ("name", Str)
+  ])
+;;
+
 let rec check_binop (ts: type_State) (b: Ast.expr) : datatype =
   let (lhs, op, rhs) = match b with
     | Binop (lhs, op, rhs) -> (lhs, op, rhs)
@@ -105,6 +113,7 @@ and typeof_expr (ts: type_State) (e: expr): datatype =
   | Call c -> check_call ts c
   | Cast c -> check_cast ts c; c.ty
   | Fieldaccess (lhs, field) -> check_field_access ts lhs field
+  | Typeinfo _ -> typeinfo_t
   | Templatearg t ->
     let name =
       match compile_to_name t.e with

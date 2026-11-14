@@ -194,6 +194,7 @@ let rec rs_toplevel (rs: resolve_State) (t: toplevel): unit =
     | Call c -> ve c.caller; Array.iter ve c.args
     | Cast c -> ve c.e; c.ty <- visit_type rs c.ty
     | Fieldaccess (lv, _) -> ve lv
+    | Typeinfo t -> t.ty <- visit_type rs t.ty
     | Templatearg tmpl ->
       ve tmpl.e;
       let name =

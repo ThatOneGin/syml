@@ -21,6 +21,7 @@ type code_State = {
     vars: (string, typed_mem) Hashtbl.t;
     glob: (string, typed_mem) Hashtbl.t;
     ts: type_State;
+    typeinfo_t: ref_ty;
   }
 
 (* auxiliary functions *)
@@ -51,9 +52,11 @@ let type2bits (ty: Dtypes.datatype): bits =
   | Generic _ | Name _ -> assert false (* unreachable *)
 ;;
 
-let cs_new (opts: Comp_state.t) (ts: type_State) (smod: smod): code_State = {
+let cs_new (opts: Comp_state.t) (ts: type_State) (smod: smod): code_State =
+  let abi = Abi.create opts.target in
+  {
     opts = opts;
-    abi = Abi.create opts.target;
+    abi = abi;
     ctxt = ctxt_new opts smod;
     smod = smod;
     code = [||];
@@ -61,6 +64,7 @@ let cs_new (opts: Comp_state.t) (ts: type_State) (smod: smod): code_State = {
     vars = Hashtbl.create 32;
     glob = Hashtbl.create 32;
     ts = ts;
+    typeinfo_t = Struct_ty (abi.create_struct [i64_t; i64_t; str_t]);
   }
 ;;
 
@@ -275,6 +279,7 @@ and code_exp (cs: code_State) (e: expr) (return_val: bool): operand =
   | Call c -> code_call cs c
   | Cast c -> code_cast cs c
   | Fieldaccess (e, f) -> code_field cs e f
+  | Typeinfo t -> code_typeinfo cs t
   | Templatearg tmpl -> code_template cs tmpl.e tmpl.ty
   | _ -> code_primexp cs e
 
@@ -342,12 +347,22 @@ and code_template (cs: code_State) (e: Ast.expr) (t: Dtypes.datatype): operand =
     ty = ty
   } in
   Mem (Name (sym), ty)
+
 and code_cast (cs: code_State) (c: Ast.castexpr): operand =
   let op: operand = code_exp cs c.e true in
   let ty = ref_of_type cs c.ty in
   match op with
   | Mem (m, _) -> Mem (m, ty)
   | Imm (i, _) -> Imm (i, ty)
+
+and code_typeinfo (cs: code_State) (t: Ast.typeinfoexpr): operand =
+  let name = Dtypes.type2str t.ty in
+  let rty = ref_of_type cs t.ty in
+  let kty = smod_push_tydesc_const cs.smod name rty in
+  let src = Mem (Addr kty, cs.typeinfo_t) in
+  let dest = Ra.ctxt_alloc_vreg cs.ctxt in
+  cs_lea cs src dest;
+  Mem (dest, (ptr_t cs.typeinfo_t))
 ;;
 
 let code_const_exp (e: expr): const =

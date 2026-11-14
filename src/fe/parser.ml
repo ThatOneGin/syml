@@ -41,6 +41,7 @@ let ps_tk2str (ps: parser_State): string =
   | TK_extern -> "<extern>"
   | TK_as -> "<as>"
   | TK_typedef -> "<typedef>"
+  | TK_typeinfo -> "<typeinfo>"
   | TK_template -> "<template>"
   | TK_nil -> "<nil>"
   | TK_int -> "<int>"
@@ -184,21 +185,21 @@ and parse_struct_lit (ps: parser_State): Dtypes.datatype =
 (* simpleexpr = INT | IDENTIFIER | STRING *)
 let parse_simpleexpr (ps: parser_State): Ast.expr =
   match ps.peek with
-  | TK_number _ -> begin
+  | TK_number _ ->
     let e = parse_number ps in
     ps_next ps;
     e
-  end
-  | TK_identifier _ -> begin
+  | TK_identifier _ ->
     let e = parse_name ps in
     ps_next ps;
     e
-  end
-  | TK_string _ -> begin
+  | TK_string _ ->
     let e = parse_string ps in
     ps_next ps;
     e
-  end
+  | TK_typeinfo ->
+    ps_next ps;
+    Ast.Typeinfo {ty = parse_type ps}
   | _ -> ps_unexpected ps "expression"
 (* primaryexpr = simpleexpr | '(' expr ')' *)
 let rec parse_primaryexpr (ps: parser_State): Ast.expr =

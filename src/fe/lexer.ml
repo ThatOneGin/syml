@@ -22,6 +22,7 @@ type token =
   | TK_extern
   | TK_as
   | TK_typedef
+  | TK_typeinfo
   | TK_template
 (* types *)
   | TK_nil (* nil is also a keyword *)
@@ -67,6 +68,7 @@ let reserved_table = [
     ("extern", TK_extern);
     ("as", TK_as);
     ("typedef", TK_typedef);
+    ("typeinfo", TK_typeinfo);
     ("template", TK_template);
     ("nil", TK_nil);
     ("int", TK_int);
