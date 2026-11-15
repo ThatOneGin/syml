@@ -8,7 +8,8 @@ struct {
 } files[] = {
   FILE("startup"),
   FILE("err"),
-  FILE("mem")
+  FILE("mem"),
+  FILE("builtin")
 };
 
 void build_c(cbone_cmd *cmd) {
