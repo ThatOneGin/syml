@@ -486,6 +486,11 @@ let parse_func (ps: parser_State): Ast.toplevel =
   | TK_def ->
     ps_next ps;
     let name: string = parse_name_as_string ps in
+    let altname: string option =
+      match ps.peek with
+      | TK_as -> ps_next ps; Some (parse_name_as_string ps)
+      | _ -> None
+    in
     ps_expect_sym ps TK_lparen "expected '('";
     let params: Ast.param array = parse_params ps in
     let ty: Dtypes.datatype =
@@ -495,6 +500,7 @@ let parse_func (ps: parser_State): Ast.toplevel =
     in
     let fdesc: Ast.funct = {
         name = name;
+        altname = altname;
         ty = ty;
         blk = parse_block ps;
         params = params;

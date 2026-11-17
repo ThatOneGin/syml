@@ -229,8 +229,17 @@ let rec rs_toplevel (rs: resolve_State) (t: toplevel): unit =
       vb f.blk;
       f.ty <- visit_type rs f.ty;
       f.params <- Array.map (fun (p: param) -> {p with ty = visit_type rs p.ty}) f.params;
-      let tylist = List.init (Array.length f.params) (fun i -> f.params.(i).ty) in
-      rs_function_push rs f.name f.ty tylist
+      (*
+       * Explanation:
+       * Functions with a specified export name can be put in the type_State
+       * table as they can't be overloaded, but those who don't, are put in
+       * our list (rs.functions) for we later decide in compilation-time, which
+       * instance we are going to use in calls
+       *)
+      if f.altname != None then ()
+      else
+        let tylist = List.init (Array.length f.params) (fun i -> f.params.(i).ty) in
+        rs_function_push rs f.name f.ty tylist
     | Globvar v ->
       ve v.value;
       v.ty <- visit_type rs v.ty
@@ -247,7 +256,12 @@ and rs_toplevel_template_aux (rs: resolve_State) (t: template): unit =
   match t.decl with
   | Typedef (name, ty) -> rs_typename_set rs name (Generic (Name t.param, ty))
   | Extern e when e.altname != None ->
-    Common.syml_warnf "custom name of extern declaration may not work inside a template";
+    Common.syml_warnf
+      "specifying import name of extern declaration may not work inside a template";
+    rs_template_set rs (name_of_toplevel t.decl) t
+  | Func f when f.altname != None ->
+    Common.syml_warnf
+      "specifying export name in a function declaration may not work inside a template";
     rs_template_set rs (name_of_toplevel t.decl) t
   | _ -> rs_template_set rs (name_of_toplevel t.decl) t
 and rs_instanciate_template

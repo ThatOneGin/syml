@@ -499,19 +499,24 @@ let func_end (cs: code_State) (name: string): unit =
 
 let code_func (cs: code_State) (f: funct): unit =
   let symbol_name =
-    if (String.sub f.name 0 2) = "_S"
-    then f.name
-    else begin
+    match (String.sub f.name 0 2, f.altname) with
+    | ("_S", _) -> f.name
+    | (_, Some s) -> s
+    | _ ->
       let tylist = List.init (Array.length f.params) (fun i -> f.params.(i).ty) in
       Mangling.mangle_func f.name tylist
-    end
+  in
+  let our_name =
+    match f.altname with
+    | Some _ -> f.name
+    | None -> symbol_name
   in
   let name: Il.name = {
     symbol = symbol_name;
     extern = false;
     ty = fptr_t;
   } in
-  cs_reg_glob cs symbol_name (Name name, fptr_t);
+  cs_reg_glob cs our_name (Name name, fptr_t);
   func_start cs symbol_name;
   code_namedlabel cs symbol_name;
   code_unnamedlabel cs;

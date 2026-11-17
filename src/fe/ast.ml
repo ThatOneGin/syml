@@ -59,6 +59,7 @@ and param = {
   }
 and funct = {
     name: string;
+    altname: string option;
     blk: block;
     mutable ty: Dtypes.datatype;
     mutable params: param array;

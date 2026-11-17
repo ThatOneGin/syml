@@ -33,17 +33,23 @@ let ts_reg_symbol (ts: type_State) (name: string) (ty: datatype): unit =
   Hashtbl.replace ts.variables name ty; ()
 ;;
 
-let rec ts_query_symbol (ts: type_State) (name: string): datatype =
+let rec ts_query_symbol_opt (ts: type_State) (name: string): datatype option =
   match Hashtbl.find_opt ts.variables name with
-  | Some t -> t
-  | None when ts.parent = None -> type_error (Printf.sprintf "Unknown variable '%s'" name)
+  | Some t -> Some t
+  | None when ts.parent = None -> None
   | None ->
-    ts_query_symbol
+    ts_query_symbol_opt
       (match ts.parent with
         | Some t -> t
         | None -> Common.unreachable
           "type-checking"
           "no parent type state") name
+;;
+
+let ts_query_symbol (ts: type_State) (name: string): datatype =
+  match ts_query_symbol_opt ts name with
+  | Some t -> t
+  | None -> type_error (Printf.sprintf "unknown variable %s" name)
 ;;
 
 let is_numeric_type (ty: datatype): bool =

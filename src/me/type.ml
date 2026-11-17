@@ -243,7 +243,23 @@ let check_func (ts: type_State) (f: funct): unit =
 
 let check_toplevel (ts: type_State) (f: toplevel): unit =
   match f with
-  | Func ft -> let fscope = ts_enter ts in check_func fscope ft
+  | Func ft ->
+    let fscope = ts_enter ts in
+    let func_type: fptr =
+      {
+        ret = ft.ty;
+        args = List.init (Array.length ft.params) (fun i -> ft.params.(i).ty);
+      }
+    in
+    (* TODO: allow functions with name mangling override to be overloaded too *)
+    begin
+      match ts_query_symbol_opt ts ft.name with
+      | Some _ -> type_error (Printf.sprintf "redefinition of function %s" ft.name)
+      | None when ft.altname != None ->
+        ts_reg_symbol ts ft.name (Fptr func_type);
+        check_func fscope ft
+      | None -> check_func fscope ft
+    end
   | Globvar v -> check_const_vard ts v
   | Extern e ->
     ts_reg_symbol ts e.name e.ty
