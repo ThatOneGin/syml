@@ -1,33 +1,46 @@
+.file	"test/call.syml"
 .text
-.globl	syml.test
-.type	syml.test,	@function
-syml.test:
+.globl	_S4testF
+.type	_S4testF,	@function
+_S4testF:
 .LC0:
+	.cfi_startproc
 	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
 	movq	%rsp,	%rbp
+	.cfi_def_cfa_register %rbp
 	subq	$16,	%rsp
 	leaq	.LK0(%rip),	%rax
 	movq	%rax,	-8(%rbp)
 	movq	-8(%rbp),	%rdi
-	call	puts
+	call	puts@PLT
 .LC1:
 	leave
+	.cfi_def_cfa %rbp, 8
 	ret
-.size	syml.test,	.-syml.test
+	.cfi_endproc
+.size	_S4testF,	.-_S4testF
 .text
-.globl	syml.main
-.type	syml.main,	@function
-syml.main:
+.globl	_S4mainF
+.type	_S4mainF,	@function
+_S4mainF:
 .LC2:
+	.cfi_startproc
 	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
 	movq	%rsp,	%rbp
-	call	syml.test
+	.cfi_def_cfa_register %rbp
+	call	_S4testF
 	movl	$0,	%eax
 	jmp	.LC3
 .LC3:
 	leave
+	.cfi_def_cfa %rbp, 8
 	ret
-.size	syml.main,	.-syml.main
+	.cfi_endproc
+.size	_S4mainF,	.-_S4mainF
 .section	.rodata
 .LK0:
 	.asciz	"Hello, world!"

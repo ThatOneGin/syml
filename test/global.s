@@ -1,10 +1,15 @@
+.file	"test/global.syml"
 .text
-.globl	syml.main
-.type	syml.main,	@function
-syml.main:
+.globl	_S4mainF
+.type	_S4mainF,	@function
+_S4mainF:
 .LC0:
+	.cfi_startproc
 	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
 	movq	%rsp,	%rbp
+	.cfi_def_cfa_register %rbp
 	subq	$16,	%rsp
 	leaq	.LK0(%rip),	%rax
 	movq	%rax,	-8(%rbp)
@@ -12,15 +17,17 @@ syml.main:
 	jmp	.LC1
 .LC1:
 	leave
+	.cfi_def_cfa %rbp, 8
 	ret
-.size	syml.main,	.-syml.main
+	.cfi_endproc
+.size	_S4mainF,	.-_S4mainF
 .section	.rodata
 .LK0:
 	.asciz	"constant string"
 .section	.rodata
-syml.x:
+_S1xVl:
 	.long	46
-syml.y:
+_S1yVd:
 	.long	65535
-syml.z:
+_S1zVs:
 	.asciz	"Hello, world!"

@@ -1,35 +1,50 @@
+.file	"test/inline.syml"
 .text
-.globl	syml.add
-.type	syml.add,	@function
-syml.add:
+.globl	_S3addFll
+.type	_S3addFll,	@function
+_S3addFll:
 .LC0:
+	.cfi_startproc
 	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
 	movq	%rsp,	%rbp
+	.cfi_def_cfa_register %rbp
 	subq	$16,	%rsp
-	movl	%edi,	%eax
-	addl	%esi,	%eax
+	movl	%edi,	-4(%rbp)
+	movl	%esi,	-8(%rbp)
+	movl	-4(%rbp),	%eax
+	addl	-8(%rbp),	%eax
 	nop
 	jmp	.LC1
 .LC1:
 	leave
+	.cfi_def_cfa %rbp, 8
 	ret
-.size	syml.add,	.-syml.add
+	.cfi_endproc
+.size	_S3addFll,	.-_S3addFll
 .text
-.globl	syml.main
-.type	syml.main,	@function
-syml.main:
+.globl	_S4mainF
+.type	_S4mainF,	@function
+_S4mainF:
 .LC2:
+	.cfi_startproc
 	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
 	movq	%rsp,	%rbp
+	.cfi_def_cfa_register %rbp
 	subq	$16,	%rsp
 	movl	$32,	-4(%rbp)
 	movl	$43,	-8(%rbp)
 	movl	-4(%rbp),	%edi
 	movl	-8(%rbp),	%esi
-	call	syml.add
+	call	_S3addFll
 	movl	%eax,	-12(%rbp)
 	movl -12(%rbp), -8(%rbp)
 .LC3:
 	leave
+	.cfi_def_cfa %rbp, 8
 	ret
-.size	syml.main,	.-syml.main
+	.cfi_endproc
+.size	_S4mainF,	.-_S4mainF
