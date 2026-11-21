@@ -43,26 +43,28 @@ let errprint (succ: bool ref) fmt: 'a =
     print_endline s) fmt
 ;;
 
+let handle_error (succ: bool ref) (f: unit -> unit): unit =
+  try f ()
+  with
+    | Lexical_error (loc, msg) -> errprint succ "%s: %s" (location2str loc) msg
+    | Parsing_error (loc, msg) -> errprint succ "%s: %s" (location2str loc) msg
+    | Common_error msg -> errprint succ "%s" msg
+    | Unreachable_error (what, where) -> errprint succ "unreachable state at %s: %s" what where
+    | Todo_error what -> errprint succ "%s is not implemented" what
+    | _ as e -> raise e
+;;
+
 let dofiles (opts: Comp_state.t) (files: string list): bool =
   let succ: bool ref = ref true in
-  List.iter
-    (fun f ->
-      try dofile opts f
-      with
-        | Lexical_error (loc, msg) -> errprint succ "%s: %s" (location2str loc) msg
-        | Parsing_error (loc, msg) -> errprint succ "%s: %s" (location2str loc) msg
-        | Common_error msg -> errprint succ "%s" msg
-        | Unreachable_error (what, where) -> errprint succ "unreachable state at %s: %s" what where
-        | Todo_error what -> errprint succ "%s is not implemented" what
-        | _ as e -> raise e
-    ) files;
-  if !succ then begin
-    Glue.run opts
-      (List.map
-        (fun v ->
-          (Filename.remove_extension v) ^ ".s")
-        files);
-    true
-  end else
-    false
+  handle_error succ (fun _ -> List.iter (fun v -> dofile opts v) files);
+  handle_error succ
+    (fun _ ->
+      if !succ then begin
+        Glue.run opts
+          (List.map
+            (fun v ->
+              (Filename.remove_extension v) ^ ".s")
+            files)
+      end else ());
+  !succ
 ;;
