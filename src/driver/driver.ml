@@ -56,5 +56,13 @@ let dofiles (opts: Comp_state.t) (files: string list): bool =
         | Todo_error what -> errprint succ "%s is not implemented" what
         | _ as e -> raise e
     ) files;
-  !succ
+  if !succ then begin
+    Glue.run opts
+      (List.map
+        (fun v ->
+          (Filename.remove_extension v) ^ ".s")
+        files) "a.out";
+    true
+  end else
+    false
 ;;

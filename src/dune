@@ -3,4 +3,4 @@
 (executable
  (public_name syml)
  (name main)
- (libraries str))
+ (libraries str unix))
