@@ -9,7 +9,6 @@ let run_process (prog: string) (_argv: string list): unit =
   match Sys.os_type with
   | "Unix" ->
     let argv = [prog] @ _argv in
-    String.concat " " argv |> print_endline;
     let pid = 
       Unix.create_process
         prog
@@ -56,16 +55,24 @@ let unix_find_runtime (): string =
 let create_toolchain (opts:Comp_state.t): tc = 
   match opts.target with
   | Linux_X86_64 ->
-    let runtime_path = unix_find_runtime () in
+    let flags: (string list) ref = ref [] in
+    Comp_state.ifdo (not opts.no_rt) (fun _ ->
+      let runtime_path = unix_find_runtime () in
+      flags := !flags @ ["-L" ^ runtime_path; "-lsyml"]);
+    Comp_state.ifdo opts.compile_only (fun _ ->
+      flags := !flags @ ["-c"]);
+    Comp_state.ifdo (!(opts.out_file) <> "") (fun _ ->
+      flags := !flags @ ["-o"; !(opts.out_file)]);
     {
       tc_cc = "cc";
-      tc_cflags = ["-L" ^ runtime_path; "-lsyml"];
+      tc_cflags = !flags;
       tc_rm = "rm";
     }
 ;;
 
-let run (opts:Comp_state.t) (inputs: string list) (output: string): unit =
+let run (opts:Comp_state.t) (inputs: string list): unit =
   let tc = create_toolchain opts in
-  run_process tc.tc_cc (tc.tc_cflags @ inputs @ ["-o"; output]);
-  run_process tc.tc_rm inputs
+  run_process tc.tc_cc (tc.tc_cflags @ inputs);
+  Comp_state.ifdo (not opts.keep_asm_files)
+    (fun _ -> run_process tc.tc_rm inputs)
 ;;

@@ -61,7 +61,7 @@ let dofiles (opts: Comp_state.t) (files: string list): bool =
       (List.map
         (fun v ->
           (Filename.remove_extension v) ^ ".s")
-        files) "a.out";
+        files);
     true
   end else
     false
