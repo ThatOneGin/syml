@@ -16,13 +16,10 @@ let rec name_of_type = function
   | I32 -> "l"
   | I64 -> "q"
   | Ptr p -> "P" ^ (name_of_type p)
-  | Fptr f -> "f" ^ String.concat "" (List.map name_of_type f.args)
+  | Fptr f -> "f" ^ (string_of_int (List.length f.args)) ^ String.concat "" (List.map name_of_type f.args)
   | Struct li ->
-      "S" ^
-        String.concat ""
-          (List.map
-            (fun (name, t) ->
-              (mangle_name name) ^ (name_of_type t)) li)
+      "S" ^ (string_of_int (List.length li)) ^
+        String.concat "" (List.map (fun (_, t) -> (name_of_type t)) li)
   | Name s -> mangle_name s
   | _ -> assert false
 ;;
