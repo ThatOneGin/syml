@@ -70,11 +70,16 @@ let pointed_type (ty: datatype): datatype option =
   | _ -> None
 ;;
 
-let equal (ty1: datatype) (ty2: datatype): bool =
+let rec equal (ty1: datatype) (ty2: datatype): bool =
   if (is_numeric_type ty1) && (is_numeric_type ty2) then true
   else
     match (ty1, ty2) with
-    | (Ptr t1, Ptr t2) -> t1 = t2
+    | (Ptr t1, Ptr t2) -> equal t1 t2
+    | (Struct s1, Struct s2) ->
+      let aux = (fun (_, t1) (_, t2) -> if equal t1 t2 then 0 else -1) in
+      if (List.compare aux s1 s2) = 0
+      then true
+      else false
     | _ -> ty1 = ty2
 ;;
 
