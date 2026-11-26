@@ -398,7 +398,8 @@ and emit_const_type (s: Il.smod) (name_id: int) (t: Il.ref_ty): unit =
   let t_alignof = Int64.of_int @@ abi.alignof t in
   emit_const_int s t_sizeof Bits64;
   emit_const_int s t_alignof Bits64;
-  emit_const_string_ref s name_id
+  emit_const_string_ref s name_id;
+  emit_newline s
 ;;
 
 let emit_constants (s: Il.smod): unit =
