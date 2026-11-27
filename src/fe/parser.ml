@@ -393,13 +393,12 @@ let parse_asm (ps: parser_State): Ast.stat =
 
 (* voidcall = IDENTIFIER '(' arglist ')' *)
 let parse_voidcall (ps: parser_State): Ast.stat =
-  let func = parse_primaryexpr ps in
-  match ps.peek with
-  | TK_lparen ->
-    let args = parse_arglist ps in
+  let c = parse_suffixedexpr ps in
+  match c with
+  | Ast.Call ce ->
     Ast.Voidcall {
-      func = func;
-      args = args;
+      func = ce.caller;
+      args = ce.args;
     }
   | _ -> ps_unexpected ps "statement"
 ;;

@@ -219,6 +219,9 @@ let rec rs_toplevel (rs: resolve_State) (t: toplevel): unit =
       ve v.value;
       v.ty <- visit_type rs v.ty
     | Return e -> ve e
+    | Voidcall vc ->
+      ve vc.func;
+      Array.iter ve vc.args;
     | _ -> ()
   in
   let visit_toplevel a t =
